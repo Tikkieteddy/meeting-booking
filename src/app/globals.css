@@ -1,0 +1,191 @@
+@import 'tailwindcss';
+
+/* ============================================================
+   Design tokens — ระบบจองห้องประชุม TNN
+   อ้างอิงบรีฟข้อ 1: Minimal Modern Luxury, พื้นขาวโปร่ง, เงานุ่ม,
+   มุมโค้ง, สีส้ม TNN #EC5F27 เป็น accent
+   ============================================================ */
+@theme {
+  /* สีแบรนด์ */
+  --color-brand-50: #fff4ef;
+  --color-brand-100: #ffe4d7;
+  --color-brand-200: #ffc6ae;
+  --color-brand-300: #ff9f79;
+  --color-brand-400: #f87b4b;
+  --color-brand-500: #ec5f27;
+  --color-brand-600: #d24d18;
+  --color-brand-700: #ae3c12;
+  --color-brand-800: #8a3011;
+  --color-brand-900: #702a12;
+
+  /* โทนกลาง (พื้นขาวโปร่ง) */
+  --color-ink-50: #f8f8f7;
+  --color-ink-100: #f1f0ee;
+  --color-ink-200: #e4e2df;
+  --color-ink-300: #cfccc7;
+  --color-ink-400: #a6a29b;
+  --color-ink-500: #7d786f;
+  --color-ink-600: #5c5850;
+  --color-ink-700: #423f39;
+  --color-ink-800: #2b2925;
+  --color-ink-900: #1a1917;
+
+  /* สีสถานะการจอง — ทุกสีผ่าน contrast AA เมื่อใช้กับตัวอักษรเข้ม
+     และต้องมีข้อความ/ไอคอนกำกับเสมอ (บรีฟข้อ 12) */
+  --color-status-free: #16a34a;
+  --color-status-partial: #eab308;
+  --color-status-almost: #f97316;
+  --color-status-full: #dc2626;
+  --color-status-pending: #a855f7;
+  --color-status-maintenance: #64748b;
+
+  /* เงานุ่ม */
+  --shadow-soft: 0 1px 2px rgb(26 25 23 / 0.04), 0 8px 24px -8px rgb(26 25 23 / 0.10);
+  --shadow-lift: 0 2px 4px rgb(26 25 23 / 0.06), 0 18px 40px -12px rgb(26 25 23 / 0.18);
+
+  /* มุมโค้ง */
+  --radius-card: 1rem;
+  --radius-pill: 999px;
+
+  /* ตัวอักษร: ใช้ฟอนต์ระบบที่รองรับไทย ไม่พึ่ง CDN ภายนอก (CSP เข้ม) */
+  --font-sans: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Sarabun', 'Leelawadee UI',
+    system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* ความสูงแถวเวลาใน Calendar (1 ชั่วโมง) */
+  --spacing-hour: 3.5rem;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+:root {
+  color-scheme: light;
+  --app-header-h: 4rem;
+}
+
+* {
+  min-width: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-ink-50);
+  color: var(--color-ink-800);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Focus state ที่เห็นชัดทุก element (บรีฟข้อ 12 / WCAG 2.1 AA) */
+:focus-visible {
+  outline: 3px solid var(--color-brand-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ปุ่มและ target แตะอย่างน้อย 44x44 บนจอสัมผัส */
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  a.tap,
+  input[type='checkbox'],
+  input[type='radio'] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* เคารพ prefers-reduced-motion (บรีฟข้อ 3.1 และ 12) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   Utilities ที่ใช้ซ้ำ
+   ============================================================ */
+@utility card {
+  background-color: #fff;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-ink-200);
+  box-shadow: var(--shadow-soft);
+}
+
+@utility sr-only-focusable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* เอฟเฟกต์ Pulse แบบสุภาพ 3 ครั้งแล้วหยุด (บรีฟข้อ 3.1 / AC03) */
+@keyframes tnn-conflict-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(220 38 38 / 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(220 38 38 / 0);
+  }
+}
+
+.conflict-pulse {
+  animation: tnn-conflict-pulse 0.75s ease-out 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conflict-pulse {
+    animation: none;
+    outline: 3px dashed var(--color-status-full);
+    outline-offset: 2px;
+  }
+}
+
+/* แถบเวลาปัจจุบัน (Day View) */
+.now-line {
+  background-color: #ef4444;
+}
+
+/* Scrollbar บางในพื้นที่ตารางเวลา */
+.calendar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-300) transparent;
+}
+
+/* skeleton */
+@keyframes tnn-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-ink-100);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.65), transparent);
+  animation: tnn-shimmer 1.4s infinite;
+}
+
+/* พิมพ์รายงาน */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

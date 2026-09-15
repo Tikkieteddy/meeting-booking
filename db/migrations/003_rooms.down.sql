@@ -1,0 +1,9 @@
+DROP FUNCTION IF EXISTS app.can_approve_room(uuid);
+DROP FUNCTION IF EXISTS app.can_manage_room(uuid);
+DROP TABLE IF EXISTS holidays;
+DROP TABLE IF EXISTS room_closures;
+DROP TABLE IF EXISTS room_approvers;
+DROP TABLE IF EXISTS room_amenities;
+DROP TABLE IF EXISTS rooms;
+DROP TABLE IF EXISTS amenities;
+DROP TABLE IF EXISTS buildings;

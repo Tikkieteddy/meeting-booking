@@ -1,0 +1,127 @@
+import { Pool, type PoolClient, type QueryResultRow } from 'pg';
+import { env } from '@/lib/env';
+import { logger } from '@/lib/util/logger';
+
+/**
+ * การเชื่อมต่อฐานข้อมูล PostgreSQL
+ *
+ * บทเรียนจากโปรเจกต์เดิม (handoff ข้อ 3.4):
+ *   DATABASE_URL ที่เว็บใช้ต้องเป็น Transaction pooler พอร์ต 6543
+ *   ส่วน DIRECT_URL (Session mode พอร์ต 5432) ใช้เฉพาะรัน migration และห้ามใส่ใน Vercel
+ *
+ * ความปลอดภัย: ทุก query ที่ทำแทนผู้ใช้ต้องผ่าน withTx() ซึ่งจะตั้งค่า
+ * app.user_id / app.user_role ให้ Row Level Security ตรวจสิทธิ์ที่ชั้นฐานข้อมูล
+ * (บรีฟข้อ 8: ตรวจ Permission ทั้ง UI API และ Database RLS)
+ */
+
+export type Sql = {
+  query<T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<{ rows: T[]; rowCount: number }>;
+};
+
+export type DbRole = 'anonymous' | 'authenticated' | 'service_role';
+
+export type DbContext = {
+  userId: string | null;
+  role: DbRole;
+  correlationId?: string;
+};
+
+export const SERVICE_CONTEXT: DbContext = { userId: null, role: 'service_role' };
+export const ANONYMOUS_CONTEXT: DbContext = { userId: null, role: 'anonymous' };
+
+let pool: Pool | null = null;
+
+export function getPool(): Pool {
+  if (pool) return pool;
+  const cfg = env();
+  pool = new Pool({
+    connectionString: cfg.DATABASE_URL,
+    max: cfg.DATABASE_POOL_MAX,
+    // Supabase / Vercel: ปิด connection ที่ค้างไว้ไม่นาน เพื่อไม่กิน quota
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 10_000,
+    ssl: cfg.DATABASE_SSL ? { rejectUnauthorized: false } : undefined,
+    application_name: 'tnn-meeting',
+  });
+  pool.on('error', (err) => logger.error('pool error ที่ client ว่าง', { error: err.message }));
+  return pool;
+}
+
+export async function closePool(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
+}
+
+function wrap(client: PoolClient): Sql {
+  return {
+    async query(text, values) {
+      const started = Date.now();
+      try {
+        const res = await client.query(text, values ? [...values] : undefined);
+        const ms = Date.now() - started;
+        if (ms > 500) logger.warn('query ช้ากว่า 500ms', { ms, sql: text.slice(0, 160) });
+        return { rows: res.rows as never[], rowCount: res.rowCount ?? 0 };
+      } catch (error) {
+        logger.error('query ล้มเหลว', { sql: text.slice(0, 200), error: (error as Error).message });
+        throw error;
+      }
+    },
+  };
+}
+
+/**
+ * รันชุดคำสั่งใน transaction เดียว พร้อมตั้ง context ให้ RLS
+ * ใช้ SET LOCAL เพื่อให้ค่าหลุดไปเมื่อ transaction จบ ไม่รั่วข้าม request
+ */
+export async function withTx<T>(ctx: DbContext, fn: (sql: Sql) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT set_config($1, $2, true)', ['app.user_id', ctx.userId ?? '']);
+    await client.query('SELECT set_config($1, $2, true)', ['app.user_role', ctx.role]);
+    if (ctx.correlationId) {
+      await client.query('SELECT set_config($1, $2, true)', ['app.correlation_id', ctx.correlationId]);
+    }
+    const result = await fn(wrap(client));
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ถ้า rollback ล้มเหลวให้ปล่อย error เดิมออกไป */
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** transaction แบบสิทธิ์ระบบ (migration, seed, cron, job worker) — ไม่ผูกกับผู้ใช้ */
+export function withServiceTx<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
+  return withTx(SERVICE_CONTEXT, fn);
+}
+
+/** อ่านอย่างเดียวแบบไม่ต้องเปิด transaction ซ้อน — ใช้กับ health check เท่านั้น */
+export async function ping(): Promise<boolean> {
+  const client = await getPool().connect();
+  try {
+    await client.query('SELECT 1');
+    return true;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Advisory lock ระดับห้อง — กันสองคำขอที่ตรวจเวลาว่างพร้อมกันเข้ามาชนกัน
+ * ใช้ร่วมกับ exclusion constraint ในฐานข้อมูล (กันชั้นสุดท้ายแบบเชื่อถือได้)
+ */
+export async function lockRoom(sql: Sql, roomId: string): Promise<void> {
+  await sql.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [roomId]);
+}
