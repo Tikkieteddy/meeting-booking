@@ -125,3 +125,28 @@ export async function ping(): Promise<boolean> {
 export async function lockRoom(sql: Sql, roomId: string): Promise<void> {
   await sql.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [roomId]);
 }
+
+/**
+ * ยกระดับสิทธิ์เป็น service_role เฉพาะช่วงสั้น ๆ ภายใน transaction เดียวกัน
+ *
+ * ใช้กับงาน "บัญชีระบบ" ที่ต้องเกิดพร้อมกับธุรกรรมของผู้ใช้แบบ atomic เช่น
+ * เขียนคิวแจ้งเตือนถึงผู้อื่น (ผู้เข้าร่วม ผู้อนุมัติ คิวรอ) ซึ่งผู้ใช้ทั่วไป
+ * ไม่ควรมีสิทธิ์เขียนตรง ๆ ตาม RLS
+ *
+ * ข้อกำหนด: ต้องไม่ใช้ครอบคำสั่งที่รับข้อมูลดิบจากผู้ใช้เพื่อเขียนตารางธุรกิจ
+ * ให้ใช้เฉพาะงาน bookkeeping ของระบบเท่านั้น และคืนค่าสิทธิ์เดิมทุกกรณี
+ */
+export async function asService<T>(sql: Sql, fn: () => Promise<T>): Promise<T> {
+  const before = await sql.query<{ value: string | null }>(
+    "SELECT current_setting('app.user_role', true) AS value",
+  );
+  const previous = before.rows[0]?.value ?? 'authenticated';
+  if (previous === 'service_role') return fn();
+
+  await sql.query('SELECT set_config($1, $2, true)', ['app.user_role', 'service_role']);
+  try {
+    return await fn();
+  } finally {
+    await sql.query('SELECT set_config($1, $2, true)', ['app.user_role', previous]);
+  }
+}

@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Sql } from '@/lib/db/pool';
-import { withServiceTx } from '@/lib/db/pool';
+import { asService, withServiceTx } from '@/lib/db/pool';
 import { logger } from '@/lib/util/logger';
 
 /**
@@ -39,9 +39,13 @@ export function sanitize(value: unknown): unknown {
   return value;
 }
 
-/** บันทึกภายใน transaction ที่กำลังทำงานอยู่ (แนะนำ — ได้ atomicity กับงานหลัก) */
+/**
+ * บันทึกภายใน transaction ที่กำลังทำงานอยู่ (แนะนำ — ได้ atomicity กับงานหลัก)
+ * audit log เป็นตารางของระบบ ผู้ใช้เขียนตรง ๆ ไม่ได้ตาม RLS จึงยกระดับสิทธิ์เฉพาะคำสั่งนี้
+ */
 export async function writeAudit(sql: Sql, entry: AuditEntry): Promise<void> {
-  await sql.query(
+  await asService(sql, () =>
+    sql.query(
     `INSERT INTO audit_logs
        (actor_profile_id, actor_email, actor_role, action, resource_type, resource_id,
         before_data, after_data, ip_hint, user_agent, correlation_id)
@@ -56,9 +60,10 @@ export async function writeAudit(sql: Sql, entry: AuditEntry): Promise<void> {
       entry.before === undefined ? null : JSON.stringify(sanitize(entry.before)),
       entry.after === undefined ? null : JSON.stringify(sanitize(entry.after)),
       entry.ipHint ?? null,
-      entry.userAgent ?? null,
-      entry.correlationId ?? null,
-    ],
+        entry.userAgent ?? null,
+        entry.correlationId ?? null,
+      ],
+    ),
   );
 }
 

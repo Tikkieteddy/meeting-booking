@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Sql } from '@/lib/db/pool';
-import { withServiceTx } from '@/lib/db/pool';
+import { asService, withServiceTx } from '@/lib/db/pool';
 import type { NotificationChannel, NotificationEvent, NotificationPayload } from './types';
 
 /**
@@ -35,11 +35,14 @@ export function buildDedupeKey(input: EnqueueInput): string {
   ].join('|');
 }
 
-/** ใส่งานลงคิวภายใน transaction ที่มีอยู่ — ถ้าซ้ำจะข้ามโดยไม่ error */
+/**
+ * ใส่งานลงคิวภายใน transaction ที่มีอยู่ — ถ้าซ้ำจะข้ามโดยไม่ error
+ * การเขียนคิวเป็นงานของระบบ จึงยกระดับสิทธิ์ชั่วคราว (ผู้ใช้ทั่วไปเขียนตารางนี้ไม่ได้ตาม RLS)
+ */
 export async function enqueueNotification(sql: Sql, input: EnqueueInput): Promise<string | null> {
   const dedupeKey = input.dedupeKey ?? buildDedupeKey(input);
   const scheduledFor = input.scheduledFor ?? new Date();
-  const res = await sql.query<{ id: string }>(
+  const res = await asService(sql, () => sql.query<{ id: string }>(
     `INSERT INTO notification_jobs
        (event_type, channel, booking_id, recipient_profile_id, recipient_address,
         payload, dedupe_key, scheduled_for, next_attempt_at, correlation_id, max_attempts)
@@ -58,7 +61,7 @@ export async function enqueueNotification(sql: Sql, input: EnqueueInput): Promis
       input.correlationId ?? null,
       input.maxAttempts ?? 5,
     ],
-  );
+  ));
   return res.rows[0]?.id ?? null;
 }
 
@@ -69,14 +72,14 @@ export function enqueueStandalone(input: EnqueueInput): Promise<string | null> {
 
 /** ยกเลิกงานที่ยังไม่ถูกส่งของการจองหนึ่ง (เช่น ยกเลิกประชุมแล้วไม่ต้องเตือนอีก) */
 export async function cancelPendingJobs(sql: Sql, bookingId: string, events?: NotificationEvent[]): Promise<number> {
-  const res = await sql.query(
+  const res = await asService(sql, () => sql.query(
     `UPDATE notification_jobs
         SET status = 'skipped', last_error = 'ยกเลิกเพราะการจองเปลี่ยนสถานะ'
       WHERE booking_id = $1
         AND status = 'queued'
         ${events ? 'AND event_type = ANY($2)' : ''}`,
     events ? [bookingId, events] : [bookingId],
-  );
+  ));
   return res.rowCount;
 }
 
@@ -92,9 +95,11 @@ export async function pushInApp(
     bookingId?: string | null;
   },
 ): Promise<void> {
-  await sql.query(
-    `INSERT INTO in_app_notifications (profile_id, event_type, title, body, link, booking_id)
-     VALUES ($1,$2,$3,$4,$5,$6)`,
-    [input.profileId, input.eventType, input.title, input.body ?? null, input.link ?? null, input.bookingId ?? null],
+  await asService(sql, () =>
+    sql.query(
+      `INSERT INTO in_app_notifications (profile_id, event_type, title, body, link, booking_id)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [input.profileId, input.eventType, input.title, input.body ?? null, input.link ?? null, input.bookingId ?? null],
+    ),
   );
 }
