@@ -1,6 +1,6 @@
 import 'server-only';
 import { withTx, type DbContext, type Sql } from '@/lib/db/pool';
-import { DEFAULT_TZ, endOfLocalDay, localDateTimeToUtc, startOfLocalDay, toDateISO } from '@/lib/util/time';
+import { DEFAULT_TZ, endOfLocalDay, localDateTimeToUtc, startOfLocalDay } from '@/lib/util/time';
 import { listRoomsWith, mapRoom, type Room } from './rooms';
 
 /**

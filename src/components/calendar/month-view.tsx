@@ -4,7 +4,7 @@ import type { CalendarBooking, MonthDaySummary } from '@/lib/domain/calendar-sha
 import { OCCUPANCY_META } from '@/lib/domain/booking-rules';
 import { cx } from '@/components/ui/primitives';
 import { t } from '@/lib/i18n';
-import { thaiWeekday, toDateISO, weekdayOfISO } from '@/lib/util/time';
+import { thaiWeekday, toDateISO } from '@/lib/util/time';
 import { TZ } from './shared';
 
 /**

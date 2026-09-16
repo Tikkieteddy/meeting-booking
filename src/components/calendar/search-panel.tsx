@@ -34,7 +34,6 @@ export function SearchPanel({
   open,
   onClose,
   initialQuery,
-  rooms,
   amenities,
   buildings,
   onOpenRoom,
@@ -44,7 +43,6 @@ export function SearchPanel({
   open: boolean;
   onClose: () => void;
   initialQuery: string;
-  rooms: Room[];
   amenities: Amenity[];
   buildings: { id: string; name: string }[];
   onOpenRoom: (roomId: string, dateISO?: string) => void;

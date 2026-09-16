@@ -436,3 +436,49 @@ update notification_jobs
 
 > ระบบใช้ **idempotency key** กันการส่งซ้ำ การเรียก Cron ซ้ำหลายรอบจึงไม่ทำให้ผู้ใช้
 > ได้รับอีเมลเดิมซ้ำ
+
+---
+
+## ภาคผนวก: สรุปคำสั่งที่ใช้บ่อยในเหตุฉุกเฉิน
+
+```bash
+# ระบบยังมีชีวิตไหม
+curl -s https://meeting.example.com/api/health
+
+# สั่งส่งการแจ้งเตือนในคิวทันที
+curl -H "authorization: Bearer $CRON_SECRET" https://meeting.example.com/api/cron/dispatch
+
+# รันงานดูแลระบบทันที (ปล่อยห้องที่ไม่เช็กอิน จัดการคิวรอ)
+curl -H "authorization: Bearer $CRON_SECRET" https://meeting.example.com/api/cron/maintenance
+
+# ดูสถานะ migration
+npm run db:migrate -- --status
+
+# backup ก่อนทำอะไรที่เสี่ยง
+pg_dump "$DIRECT_URL" --no-owner --no-privileges -Fc -f backup-$(date +%F-%H%M).dump
+```
+
+```sql
+-- งานแจ้งเตือนค้างอยู่เท่าไร
+select status, count(*) from notification_jobs group by status;
+
+-- ข้อผิดพลาดล่าสุดของการส่ง
+select event_type, channel, attempts, left(last_error, 120) as error, updated_at
+from notification_jobs where status in ('failed','dead')
+order by updated_at desc limit 20;
+
+-- ตรวจว่าไม่มีการจองซ้อนกัน (ต้องได้ 0)
+select count(*) from bookings a join bookings b
+  on a.room_id = b.room_id and a.id < b.id and a.blocked_period && b.blocked_period
+where a.blocks_slot and b.blocks_slot;
+
+-- เตะทุกอุปกรณ์ออกจากระบบ (ใช้เมื่อสงสัยว่าบัญชีถูกยึด)
+update user_sessions set revoked_at = now() where revoked_at is null;
+
+-- ดูการกระทำของผู้ดูแลระบบย้อนหลัง 7 วัน
+select created_at, actor_email, action, resource_type, resource_id
+from audit_logs
+where action in ('role.grant','room.create','room.update','room.archive','user.invite')
+  and created_at > now() - interval '7 days'
+order by created_at desc;
+```

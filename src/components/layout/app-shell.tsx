@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cx } from '@/components/ui/primitives';
 import { apiFetch } from '@/lib/client/api';
+import { OfflineBanner } from './offline-banner';
 import { t, type MessageKey } from '@/lib/i18n';
 
 export type ShellUser = {
@@ -85,6 +86,8 @@ export function AppShell({
         {t('nav.skipToContent')}
       </a>
 
+      <OfflineBanner />
+
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur">
         <div className="flex h-16 items-center gap-3 px-3 sm:px-5">
           <Link href="/calendar" className="flex shrink-0 items-center gap-2" aria-label={t('app.name')}>
@@ -126,11 +129,16 @@ export function AppShell({
             </Link>
 
             <div ref={menuRef} className="relative">
+              {/*
+                บนจอเล็กปุ่มนี้แสดงเพียงอักษรย่อ จึงต้องมี aria-label กำกับ
+                ไม่อย่างนั้น screen reader จะอ่านได้แค่ตัวอักษรตัวเดียว
+              */}
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
+                aria-label={`เมนูของ ${user.fullName} (${user.roleLabel})`}
                 className="flex h-11 items-center gap-2 rounded-xl px-2 hover:bg-ink-100"
               >
                 <span className="flex size-8 items-center justify-center rounded-full bg-ink-200 text-xs font-semibold text-ink-700">

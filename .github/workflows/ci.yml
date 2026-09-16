@@ -1,0 +1,116 @@
+name: ตรวจคุณภาพโค้ด
+
+# รันทุกครั้งที่เปิด Pull Request และเมื่อ push เข้า main
+# ตั้ง branch protection ให้ต้องผ่าน job นี้ก่อน merge (บรีฟ 22.10)
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck + lint + unit test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+      - name: ตรวจว่าไม่มี secret หลุดไปฝั่ง browser
+        env:
+          # ค่าปลอมสำหรับ build เท่านั้น ไม่ได้ต่อฐานข้อมูลจริง
+          DATABASE_URL: postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder
+          AUTH_SECRET: ci-build-only-secret-value-at-least-32-chars
+        run: |
+          npm run build
+          if grep -rilE "service_role|LINE_CHANNEL_ACCESS_TOKEN|EMAIL_API_KEY" .next/static; then
+            echo "::error::พบค่าที่ดูเหมือน secret ในไฟล์ที่ส่งไปให้เบราว์เซอร์"
+            exit 1
+          fi
+
+  integration:
+    name: integration test กับ PostgreSQL จริง
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tnn
+          POSTGRES_PASSWORD: tnn_ci_password
+          POSTGRES_DB: tnn_meeting_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://tnn:tnn_ci_password@127.0.0.1:5432/tnn_meeting_test
+      DATABASE_SSL: 'false'
+      AUTH_SECRET: ci-test-only-secret-value-at-least-32-chars
+      APP_ENV: test
+      EMAIL_PROVIDER: log
+      LINE_PROVIDER: log
+      LOG_LEVEL: error
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:integration
+
+  e2e:
+    name: end-to-end test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tnn
+          POSTGRES_PASSWORD: tnn_ci_password
+          POSTGRES_DB: tnn_meeting
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://tnn:tnn_ci_password@127.0.0.1:5432/tnn_meeting
+      DIRECT_URL: postgresql://tnn:tnn_ci_password@127.0.0.1:5432/tnn_meeting
+      DATABASE_SSL: 'false'
+      AUTH_SECRET: ci-e2e-only-secret-value-at-least-32-chars
+      APP_ENV: development
+      APP_TIMEZONE: Asia/Bangkok
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
+      EMAIL_PROVIDER: log
+      LINE_PROVIDER: log
+      CRON_SECRET: ci-cron-secret
+      LOG_LEVEL: error
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

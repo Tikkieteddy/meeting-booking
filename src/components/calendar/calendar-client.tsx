@@ -204,7 +204,6 @@ export function CalendarClient({
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         initialQuery={searchValue}
-        rooms={rooms}
         amenities={amenities}
         buildings={buildings}
         onOpenRoom={(targetRoomId, targetDate) => {
