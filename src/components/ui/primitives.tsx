@@ -84,15 +84,23 @@ export function Field({
 }) {
   return (
     <div className={cx('flex flex-col gap-1.5', className)}>
-      <label htmlFor={htmlFor} className="text-sm font-medium text-ink-700">
-        {label}
+      {/*
+        ข้อความใน <label> ต้องเท่ากับชื่อฟิลด์เป๊ะ ๆ ไม่มีอักขระอื่นเจือปน
+        เพราะ screen reader และเครื่องมือทดสอบใช้ข้อความนี้เป็น "ชื่อ" ของ control
+        (aria-hidden ซ่อนจาก accessibility tree แต่ยังอยู่ใน textContent ของ label)
+        เครื่องหมาย * จึงวางไว้นอก label เป็นสัญลักษณ์ทางสายตาเท่านั้น
+        ส่วนความ "จำเป็น" ประกาศผ่าน attribute required ของ control เอง
+      */}
+      <span className="flex items-center gap-1">
+        <label htmlFor={htmlFor} className="text-sm font-medium text-ink-700">
+          {label}
+        </label>
         {required && (
-          <span className="ms-1 text-brand-600" aria-hidden="true">
+          <span className="text-brand-600" aria-hidden="true">
             *
           </span>
         )}
-        {required && <span className="sr-only"> (จำเป็น)</span>}
-      </label>
+      </span>
       {children}
       {hint && !error && <p className="text-xs text-ink-500">{hint}</p>}
       {error && (

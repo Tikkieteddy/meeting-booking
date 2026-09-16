@@ -108,7 +108,7 @@ export function MonthView({
             <span aria-hidden="true" style={{ color: OCCUPANCY_META[level].color }}>
               {OCCUPANCY_META[level].symbol}
             </span>
-            {t(OCCUPANCY_META[level].labelKey)}
+            <span>{t(OCCUPANCY_META[level].labelKey)}</span>
           </span>
         ))}
       </div>

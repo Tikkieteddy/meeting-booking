@@ -1,4 +1,4 @@
-import { addDaysISO, addMonthsISO, weekdayOfISO } from '@/lib/util/time';
+import { addDaysISO, addMonthsISO, startOfWeekISO, weekdayOfISO } from '@/lib/util/time';
 
 /**
  * การจองซ้ำ (บรีฟข้อ 5.1)
@@ -6,6 +6,9 @@ import { addDaysISO, addMonthsISO, weekdayOfISO } from '@/lib/util/time';
  * ต้องมีจุดสิ้นสุดเสมอ: ระบุวันสิ้นสุด หรือจำนวนครั้ง
  */
 export const MAX_OCCURRENCES = 104; // ประมาณ 2 ปีของการประชุมรายสัปดาห์
+
+/** สัปดาห์เริ่มวันจันทร์ ให้ตรงกับ Week View ของปฏิทิน */
+const WEEK_STARTS_ON = 1;
 
 export type RecurrenceRule = {
   frequency: 'daily' | 'weekly' | 'monthly';
@@ -49,17 +52,18 @@ export function expandRecurrence(startDateISO: string, rule: RecurrenceRule): st
   }
 
   if (rule.frequency === 'weekly') {
-    const weekdays = (rule.byWeekdays?.length ? [...rule.byWeekdays] : [weekdayOfISO(startDateISO)]).sort(
-      (a, b) => a - b,
+    // ยึดสัปดาห์จากวันจันทร์ (WEEK_STARTS_ON) เพื่อให้วันที่ที่ได้เรียงตามลำดับจริง
+    // ถ้ายึดจากวันเริ่ม วันที่อยู่ก่อนวันเริ่มในสัปดาห์เดียวกันจะเลื่อนไปสัปดาห์หน้าแล้วสลับลำดับ
+    const offsetFromWeekStart = (weekday: number) => (weekday - WEEK_STARTS_ON + 7) % 7;
+    const weekdays = (rule.byWeekdays?.length ? [...new Set(rule.byWeekdays)] : [weekdayOfISO(startDateISO)]).sort(
+      (a, b) => offsetFromWeekStart(a) - offsetFromWeekStart(b),
     );
-    // ไล่ทีละสัปดาห์ เริ่มจากสัปดาห์ของวันเริ่ม แล้วข้ามทีละ interval สัปดาห์
-    let weekStart = startDateISO;
+
+    let weekStart = startOfWeekISO(startDateISO, WEEK_STARTS_ON);
     let guard = 0;
     while (guard++ < MAX_OCCURRENCES * 2) {
-      const baseWeekday = weekdayOfISO(weekStart);
       for (const wd of weekdays) {
-        const offset = (wd - baseWeekday + 7) % 7;
-        const candidate = addDaysISO(weekStart, offset);
+        const candidate = addDaysISO(weekStart, offsetFromWeekStart(wd));
         if (candidate < startDateISO) continue;
         if (!pushIfAllowed(candidate)) return dates;
       }

@@ -42,3 +42,6 @@ yarn-error.log*
 /playwright-report/
 /playwright/.cache/
 /blob-report/
+
+# Playwright session ที่บันทึกไว้ตอนรันเทสต์ (มี cookie จึงห้าม commit)
+/playwright/.auth/

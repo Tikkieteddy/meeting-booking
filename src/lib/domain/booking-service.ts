@@ -162,9 +162,13 @@ async function syncAttendees(sql: Sql, bookingId: string, attendees: AttendeeInp
     const email = a.email.trim().toLowerCase();
     if (!email) continue;
     // ผู้เข้าร่วมที่เป็นคนในองค์กรจะจับคู่กับ profile ให้อัตโนมัติ
-    const match = await sql.query<{ id: string; full_name: string }>(
-      'SELECT id, full_name FROM profiles WHERE lower(email) = $1 LIMIT 1',
-      [email],
+    // ต้องใช้สิทธิ์ระบบ เพราะ RLS ของ profiles เปิดให้อ่านได้เฉพาะแถวของตัวเอง
+    // (ค้นด้วยอีเมลที่ผู้จองพิมพ์เข้ามาเท่านั้น ไม่ได้เปิดให้ไล่ดูรายชื่อทั้งองค์กร)
+    const match = await asService(sql, () =>
+      sql.query<{ id: string; full_name: string }>(
+        'SELECT id, full_name FROM profiles WHERE lower(email) = $1 LIMIT 1',
+        [email],
+      ),
     );
     const profileId = a.profileId ?? match.rows[0]?.id ?? null;
     if (profileId) profileIds.push(profileId);

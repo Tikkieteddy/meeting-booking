@@ -16,12 +16,12 @@
     "db:rollback": "tsx scripts/migrate.ts --rollback",
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "tsx scripts/migrate.ts --reset && tsx scripts/seed.ts",
-    "test": "vitest run --project=unit",
-    "test:unit": "vitest run --project=unit",
-    "test:integration": "vitest run --project=integration",
-    "test:all": "vitest run",
+    "test": "vitest run -c vitest.config.ts",
+    "test:unit": "vitest run -c vitest.config.ts",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "test:all": "npm run test:unit && npm run test:integration",
     "test:e2e": "playwright test",
-    "verify": "npm run typecheck && npm run test:unit"
+    "verify": "npm run typecheck && npm run lint && npm run test:unit"
   },
   "dependencies": {
     "next": "15.5.25",

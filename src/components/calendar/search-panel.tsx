@@ -154,7 +154,7 @@ export function SearchPanel({
       <div className="flex flex-col gap-4">
         <div className="flex gap-2">
           <Input
-            autoFocus
+
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}

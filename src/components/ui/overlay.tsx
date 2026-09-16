@@ -8,6 +8,32 @@ import { cx } from './primitives';
  *  - focus trap, ปิดด้วย Esc, คืน focus ให้ตัวที่เปิด
  *  - บนมือถือแสดงเป็น Bottom sheet ตามบรีฟข้อ 2
  */
+/**
+ * จำ element ที่มี focus "นอก dialog" ล่าสุด
+ *
+ * ทำไมต้องมีตัวนี้: React ใส่ focus ให้ element ที่มี autoFocus ตอน commit
+ * ซึ่งเกิด "ก่อน" useEffect ทำงาน ถ้า Overlay อ่าน document.activeElement ใน effect
+ * จะได้ฟิลด์ที่อยู่ข้างใน dialog เอง ไม่ใช่ปุ่มที่กดเปิด ทำให้คืน focus ผิดที่
+ * ตัวติดตามนี้จึงบันทึกเฉพาะ focus ที่เกิดนอก dialog ไว้ล่วงหน้า
+ */
+let lastFocusedOutsideDialog: HTMLElement | null = null;
+let focusTrackerInstalled = false;
+
+function installFocusTracker() {
+  if (focusTrackerInstalled || typeof document === 'undefined') return;
+  focusTrackerInstalled = true;
+  document.addEventListener(
+    'focusin',
+    (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target && typeof target.closest === 'function' && !target.closest('[role="dialog"]')) {
+        lastFocusedOutsideDialog = target;
+      }
+    },
+    true,
+  );
+}
+
 export function Overlay({
   open,
   onClose,
@@ -38,8 +64,15 @@ export function Overlay({
   }, []);
 
   useEffect(() => {
+    installFocusTracker();
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
-    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    // ตัวที่ควรได้ focus คืนเมื่อปิด คือ element ที่มี focus นอก dialog ล่าสุด
+    const active = document.activeElement as HTMLElement | null;
+    const activeIsOutside = active && active !== document.body && !active.closest('[role="dialog"]');
+    previouslyFocused.current = activeIsOutside ? active : lastFocusedOutsideDialog;
     const timer = window.setTimeout(() => focusables()[0]?.focus(), 30);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -69,7 +102,15 @@ export function Overlay({
       window.clearTimeout(timer);
       document.removeEventListener('keydown', onKeyDown, true);
       document.body.style.overflow = prevOverflow;
-      previouslyFocused.current?.focus?.();
+
+      // คืน focus ให้ตัวที่เปิด dialog หลัง DOM อัปเดตเสร็จ
+      // (ถ้าเรียกทันทีในจังหวะ cleanup เบราว์เซอร์อาจย้าย focus ไป body ทับอีกครั้ง)
+      const target = previouslyFocused.current;
+      if (target) {
+        window.requestAnimationFrame(() => {
+          if (target.isConnected) target.focus();
+        });
+      }
     };
   }, [open, onClose, focusables]);
 

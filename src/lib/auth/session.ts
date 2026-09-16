@@ -134,11 +134,21 @@ export async function revokeAllSessions(profileId: string): Promise<number> {
   });
 }
 
+/**
+ * ตัวเลือกของ cookie เซสชัน
+ *
+ * ธง Secure ต้องอิงว่า "เสิร์ฟผ่าน HTTPS จริงหรือไม่" ไม่ใช่อิงโหมด build
+ * เพราะถ้าตั้ง Secure ไว้ทั้งที่เสิร์ฟผ่าน http (เช่นรัน production build
+ * บนเครือข่ายภายใน หรือหลัง reverse proxy ที่ยังไม่ทำ TLS) client ที่เข้มงวด
+ * จะทิ้ง cookie ทั้งใบและล็อกอินไม่ได้เลย
+ *
+ * บน Vercel ค่า NEXT_PUBLIC_APP_URL เป็น https อยู่แล้ว จึงได้ธง Secure ตามที่ควร
+ */
 export function sessionCookieOptions(expiresAt: Date) {
   return {
     httpOnly: true,
     sameSite: 'lax' as const,
-    secure: process.env.NODE_ENV === 'production',
+    secure: env().NEXT_PUBLIC_APP_URL.startsWith('https://'),
     path: '/',
     expires: expiresAt,
   };
