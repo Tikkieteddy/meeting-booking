@@ -24,6 +24,7 @@
 | [docs/admin-guide.md](docs/admin-guide.md) | คู่มือผู้ดูแลระบบ |
 | [docs/production-readiness.md](docs/production-readiness.md) | เช็กลิสต์ก่อนเปิดใช้งานจริง |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | แก้ปัญหาที่พบบ่อย |
+| [docs/delivery-report.md](docs/delivery-report.md) | สรุปสิ่งที่ส่งมอบ ผลทดสอบ ข้อจำกัด และงานต่อเนื่อง |
 
 ---
 
