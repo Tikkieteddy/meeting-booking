@@ -45,3 +45,6 @@ yarn-error.log*
 
 # Playwright session ที่บันทึกไว้ตอนรันเทสต์ (มี cookie จึงห้าม commit)
 /playwright/.auth/
+
+# รายงาน Lighthouse ที่รันในเครื่อง — ไม่ต้องเก็บเข้า repo
+/lighthouse-report.html

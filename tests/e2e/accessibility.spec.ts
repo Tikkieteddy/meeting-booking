@@ -106,11 +106,18 @@ test.describe('การเข้าถึง (Accessibility)', () => {
   test('การ์ดการจองมี aria-label อธิบายเวลาและสถานะ', async ({ page }) => {
     await openCalendar(page);
     await page.getByRole('button', { name: 'วันนี้' }).click();
-    const card = page.locator('button[aria-label*="สถานะ"]').first();
+    // ชื่อของการ์ดต้องเกิดจากเนื้อหาที่แสดงจริง ไม่ใช่ aria-label ที่เขียนแยก
+    // (WCAG 2.5.3 Label in Name — คนสั่งงานด้วยเสียงพูดตามที่เห็นบนจอ)
+    const card = page.getByRole('button', { name: /สถานะ/ }).first();
     await expect(card).toBeVisible();
-    const label = await card.getAttribute('aria-label');
-    expect(label).toMatch(/\d{2}:\d{2} ถึง \d{2}:\d{2}/);
-    expect(label).toContain('สถานะ');
+
+    const name = (await card.evaluate((el) => el.textContent ?? '')).replace(/\s+/g, ' ').trim();
+    // เวลาต้องอยู่ในรูปแบบเดียวกับที่ตาเห็น คือมีขีดกลางคั่น
+    expect(name).toMatch(/\d{2}:\d{2}\u2013\d{2}:\d{2}/);
+    // สถานะต้องมีข้อความกำกับ ไม่สื่อด้วยสีหรือสัญลักษณ์อย่างเดียว
+    expect(name).toContain('สถานะ');
+    // และการ์ดต้องไม่มี aria-label ที่จะหลุดจากเนื้อหาในอนาคต
+    expect(await card.getAttribute('aria-label')).toBeNull();
   });
 });
 

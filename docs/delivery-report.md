@@ -103,7 +103,8 @@
 |---|---|---|---|
 | Unit | 80 | ✅ ผ่านทั้งหมด | `npm run test:unit` |
 | Integration (PostgreSQL 16 จริง) | 55 | ✅ ผ่านทั้งหมด | `npm run test:integration` |
-| End-to-end (Playwright, 4 ขนาดจอ) | 140 | ✅ ผ่านทั้งหมด | `npm run test:e2e` |
+| End-to-end (Playwright, 4 ขนาดจอ) | 176 | ✅ ผ่านทั้งหมด | `npm run test:e2e` |
+| Lighthouse โหมดมือถือ | 2 หน้า | Performance 98–99, Accessibility 96, Best Practices 100 | ดู [performance.md](performance.md) |
 | Typecheck | – | ✅ ไม่มี error | `npm run typecheck` |
 | Lint | – | ✅ ไม่มี warning | `npm run lint` |
 | Build | – | ✅ สำเร็จ | `npm run build` |
@@ -194,6 +195,9 @@ npm run test:e2e          # ล้างและ seed ฐานข้อมู�
 | ภาษาอังกฤษแปลบางส่วน | โครงสร้าง i18n ครบ ไทยครบ อังกฤษแปลคำที่ใช้บ่อย | คีย์ที่ยังไม่แปลจะ fallback เป็นไทย | เติมคีย์ใน `src/lib/i18n/en.ts` |
 | ยังไม่มีหน้าสร้าง custom role | ตาราง `roles`/`role_permissions` รองรับแล้ว | เพิ่ม role ใหม่ต้องทำผ่าน SQL | ทำหน้า UI จัดการ role |
 | ยังไม่ได้ทดสอบกับ Supabase/Vercel จริง | เซสชันนี้ไม่มีคีฟของบัญชีผู้ใช้ (และไม่ควรมี) | ทดสอบครบบน PostgreSQL 16 จริงในเครื่องแล้ว | ทำตาม [infrastructure-setup.md](infrastructure-setup.md) แล้วเดิน [production-readiness.md](production-readiness.md) |
+| `vitest` 2.1.9 มีช่องโหว่ที่ยังไม่มีเวอร์ชันแก้ในสาย 2.x | 1 critical + 3 ระดับรองในเครื่องมือทดสอบ — สายที่แก้แล้วคือ 5.x ซึ่งข้าม 3 major version | **เป็น dependency ของนักพัฒนาเท่านั้น ไม่ได้ขึ้น production** · ช่องโหว่ระดับ critical เกิดเฉพาะเมื่อรัน `vitest --ui` ซึ่งโปรเจกต์นี้ไม่ใช้ | อัปเกรด `vitest` เป็น 5.x แล้วรัน `npm run test:unit` กับ `npm run test:integration` ให้ผ่าน — config ใช้ option พื้นฐานทั้งหมด คาดว่าแก้ไม่มาก |
+| สีส้มแบรนด์กับตัวอักษรขาวยังไม่ผ่านเกณฑ์ contrast | `#EC5F27` กับตัวอักษรขาวได้ 3.36:1 ต้องได้ 4.5:1 — พบที่ปุ่มหลักและป้ายต่าง ๆ | คนสายตาเลือนอ่านตัวหนังสือบนปุ่มได้ยากกว่าที่ควร · คะแนน Accessibility ค้างที่ 96 | เป็นการตัดสินใจเรื่องสีแบรนด์ ไม่ใช่เรื่องเทคนิค — เลือกเฉดจากตารางใน [performance.md](performance.md) ข้อ 7 แล้วแก้ token จุดเดียว |
+| ยังไม่ได้ทดสอบ PWA บนมือถือเครื่องจริง | ทดสอบครบใน Chromium (แคช หน้าออฟไลน์ manifest ไอคอน) แต่ยังไม่เคยกด "เพิ่มลงหน้าจอหลัก" บน iPhone/Android จริง | อาจมีรายละเอียดการแสดงผลต่างจากที่คาด | ติดตั้งจริงหลังขึ้น production แล้วดูตามหัวข้อวิธีติดตั้งในหน้าช่วยเหลือ |
 | ยังไม่ได้ทดสอบส่งอีเมล/LINE จริง | ใช้โหมด `log` ซึ่งบันทึกลง log และฐานข้อมูลจริง | flow ทั้งหมดทดสอบได้ แต่ยังไม่เคยส่งออกภายนอก | ใส่คีย์ Resend และ LINE แล้วทดสอบตามข้อ 4.6 และ 5.4 ของคู่มือ Infrastructure |
 
 ---

@@ -211,7 +211,8 @@ export function DayView({
               style={{ top: ((nowMinutes - window.openMinutes) / 60) * HOUR_PX }}
               aria-hidden="true"
             >
-              <span className="ms-1 rounded-md bg-red-500 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white">
+              <span // red-500 กับตัวอักษรขาวได้แค่ 3.81:1 — ใช้ red-600 ที่ได้ 4.77:1 ผ่านเกณฑ์
+              className="ms-1 rounded-md bg-red-600 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white">
                 {minutesToHhmm(nowMinutes)}
               </span>
               <span className="now-line h-0.5 flex-1" />

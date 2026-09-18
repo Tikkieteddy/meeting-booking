@@ -50,6 +50,30 @@ export default function HelpPage() {
         </ul>
       </section>
 
+      {/*
+        วิธีติดตั้งเป็นแอฟ — เขียนเป็นขั้นตอนต่อระบบปฏิบัติการ เพราะปุ่มอยู่ไม่เหมือนกัน
+        และผู้ใช้ส่วนใหญ่ไม่เคยติดตั้งเว็บเป็นแอฟมาก่อน
+      */}
+      <section className="rounded-xl border border-brand-200 bg-brand-50 p-4">
+        <h2 className="text-base font-semibold text-ink-900">{t('install.title')}</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-700">{t('install.intro')}</p>
+        <ul className="mt-3 flex flex-col gap-2 text-sm leading-relaxed text-ink-700">
+          <li className="flex gap-2">
+            <span aria-hidden="true">🤖</span>
+            <span>{t('install.android')}</span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden="true">🍎</span>
+            <span>{t('install.ios')}</span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden="true">💻</span>
+            <span>{t('install.desktop')}</span>
+          </li>
+        </ul>
+        <p className="mt-3 text-xs leading-relaxed text-ink-600">{t('install.note')}</p>
+      </section>
+
       <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <h2 className="font-semibold">ติดปัญหาการใช้งาน</h2>
         <p className="mt-1 leading-relaxed">

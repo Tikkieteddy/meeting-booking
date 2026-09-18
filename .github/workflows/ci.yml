@@ -32,7 +32,9 @@ jobs:
           AUTH_SECRET: ci-build-only-secret-value-at-least-32-chars
         run: |
           npm run build
-          if grep -rilE "service_role|LINE_CHANNEL_ACCESS_TOKEN|EMAIL_API_KEY" .next/static; then
+          # ตรวจทั้ง .next/static (ไฟล์ที่ build ออกมา) และ public/ (ไฟล์ที่เสิร์ฟตรง
+          # เช่น service worker กับไอคอน) เพราะทั้งสองที่ถูกส่งไปให้เบราว์เซอร์เหมือนกัน
+          if grep -rilE "service_role|LINE_CHANNEL_ACCESS_TOKEN|EMAIL_API_KEY" .next/static public; then
             echo "::error::พบค่าที่ดูเหมือน secret ในไฟล์ที่ส่งไปให้เบราว์เซอร์"
             exit 1
           fi

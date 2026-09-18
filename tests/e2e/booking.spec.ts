@@ -74,7 +74,9 @@ test.describe('การจองห้องประชุม', () => {
 
   test('เปิดรายละเอียดการจองและมีลิงก์ดาวน์โหลดไฟล์ปฏิทิน', async ({ page }) => {
     await page.getByRole('button', { name: 'วันนี้' }).click();
-    const card = page.locator('button[aria-label*="สถานะ"]').first();
+    // การ์ดการจองไม่มี aria-label แล้ว — ชื่อมาจากเนื้อหาจริงรวมข้อความสถานะ
+    // (ดูเหตุผลใน src/components/calendar/booking-card.tsx)
+    const card = page.getByRole('button', { name: /สถานะ/ }).first();
     await expect(card).toBeVisible();
     await card.click();
 

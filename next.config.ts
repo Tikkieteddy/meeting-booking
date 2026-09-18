@@ -14,6 +14,9 @@ const csp = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self'",
+  // service worker และไฟล์ manifest ของ PWA มาจากโดเมนเดียวกันเท่านั้น
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -39,6 +42,22 @@ const nextConfig: NextConfig = {
             ? []
             : [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' }]),
         ],
+      },
+      {
+        /*
+         * ไฟล์ service worker ต้องไม่ถูกแคชนาน ไม่อย่างนั้นเบราว์เซอร์จะยังใช้
+         * ตัวเก่าต่อไปหลัง deploy ทำให้แก้พฤติกรรมการแคชไม่ได้เลย
+         */
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
+          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+        ],
+      },
+      {
+        // ไอคอนเปลี่ยนแทบไม่ได้ จึงให้แคชได้นาน ลดการโหลดซ้ำบนมือถือ
+        source: '/icons/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, immutable' }],
       },
     ];
   },

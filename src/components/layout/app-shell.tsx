@@ -1,6 +1,7 @@
 'use client';
 
-import Link from 'next/link';
+import { SmartLink as Link } from '@/components/ui/smart-link';
+import { BrandMark } from '@/components/ui/brand-mark';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cx } from '@/components/ui/primitives';
@@ -90,10 +91,14 @@ export function AppShell({
 
       <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur">
         <div className="flex h-16 items-center gap-3 px-3 sm:px-5">
-          <Link href="/calendar" className="flex shrink-0 items-center gap-2" aria-label={t('app.name')}>
-            <span className="flex size-9 items-center justify-center rounded-xl bg-brand-500 text-base font-bold text-white">
-              T
-            </span>
+          {/*
+            aria-label ต้องครอบคลุมข้อความที่ตาเห็น (กฎ WCAG 2.5.3 Label in Name)
+            ข้อความที่เห็นคือ "TNN Meeting" ซึ่งซ่อนบนจอเล็ก จึงใช้ชื่อย่อเป็น
+            aria-label และใช้โลโก้แบบ SVG เพื่อไม่ให้ตัวอักษร T กลายเป็นข้อความ
+            ที่ตาเห็นแต่ไม่อยู่ในชื่อ
+          */}
+          <Link href="/calendar" className="flex shrink-0 items-center gap-2" aria-label={t('app.shortName')}>
+            <BrandMark className="size-9 shrink-0 text-brand-500" />
             <span className="hidden text-sm font-semibold text-ink-900 sm:block">{t('app.shortName')}</span>
           </Link>
 
@@ -207,7 +212,9 @@ export function AppShell({
             aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
             className={cx(
               'flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium',
-              pathname.startsWith(item.href) ? 'text-brand-600' : 'text-ink-500',
+              // brand-600 เป็นตัวอักษรบนพื้นขาวได้ 4.36:1 ไม่ถึงเกณฑ์
+              // brand-700 ที่มีอยู่ในชุดสีเดิมได้ 6.1:1 — ยังเป็นส้มโทนเดียวกัน
+              pathname.startsWith(item.href) ? 'text-brand-700' : 'text-ink-500',
             )}
           >
             <span aria-hidden="true" className="text-lg">

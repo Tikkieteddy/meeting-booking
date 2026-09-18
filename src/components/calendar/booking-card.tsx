@@ -36,12 +36,18 @@ export function BookingCard({
   const statusLabel = t(`status.${booking.status}` as 'status.confirmed');
   const symbol = STATUS_SYMBOL[booking.status] ?? '•';
 
+  const timeRange = `${start}\u2013${end}`;
+  const bookerLine = booking.bookerName
+    ? `${booking.bookerName}${booking.bookerDepartment ? ` \u00b7 ${booking.bookerDepartment}` : ''}`
+    : '';
+  const showBooker = !compact && booking.canSeeDetails && Boolean(booking.bookerName);
+  const showRoomLine = !compact && Boolean(showRoom) && Boolean(roomName);
+
   return (
     <button
       type="button"
       onClick={() => onOpen(booking)}
       style={style}
-      aria-label={`${booking.title} ${start} ถึง ${end} สถานะ ${statusLabel}${booking.bookerName ? ` ผู้จอง ${booking.bookerName}` : ''}`}
       className={cx(
         'group absolute z-10 flex w-full flex-col overflow-hidden rounded-lg border px-2 py-1 text-start',
         'transition-shadow hover:shadow-soft focus-visible:z-20',
@@ -51,20 +57,23 @@ export function BookingCard({
     >
       <span className="flex items-center gap-1 text-[11px] font-semibold leading-tight">
         <span aria-hidden="true">{symbol}</span>
-        <span className="tabular-nums">
-          {start}–{end}
-        </span>
+        <span className="tabular-nums">{timeRange}</span>
         {booking.isMine && <span className="rounded bg-brand-500/15 px-1 text-[10px]">ของฉัน</span>}
       </span>
       <span className="truncate text-xs font-medium leading-snug">{booking.title}</span>
-      {!compact && booking.canSeeDetails && booking.bookerName && (
-        <span className="truncate text-[11px] leading-tight opacity-80">
-          {booking.bookerName}
-          {booking.bookerDepartment ? ` · ${booking.bookerDepartment}` : ''}
-        </span>
-      )}
-      {!compact && showRoom && roomName && <span className="truncate text-[11px] leading-tight opacity-70">{roomName}</span>}
+      {showBooker && <span className="truncate text-[11px] leading-tight opacity-80">{bookerLine}</span>}
+      {showRoomLine && <span className="truncate text-[11px] leading-tight opacity-70">{roomName}</span>}
       {!booking.canSeeDetails && <span className="text-[11px] opacity-70">{t('booking.privateHidden')}</span>}
+      {/*
+        ไม่ใช้ aria-label ที่นี่โดยเจตนา
+        กฎ WCAG 2.5.3 (Label in Name) กำหนดว่าชื่อที่ screen reader อ่าน
+        ต้องครอบคลุมข้อความที่ตาเห็นทั้งหมด เพราะคนที่สั่งงานด้วยเสียงจะพูด
+        ตามที่เห็นบนจอ ถ้าเขียน aria-label แยกเอง มันจะหลุดจากเนื้อหาที่แสดงผล
+        ทุกครั้งที่มีคนแก้การ์ดนี้
+        วิธีนี้ให้ชื่อเกิดจากเนื้อหาจริงเสมอ แล้วเติมเฉพาะสถานะซึ่งบนจอสื่อด้วย
+        สัญลักษณ์กับสี ให้เป็นข้อความที่อ่านออกเสียงได้
+      */}
+      <span className="sr-only">สถานะ {statusLabel}</span>
     </button>
   );
 }
