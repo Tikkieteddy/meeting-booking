@@ -16,6 +16,7 @@
     "db:rollback": "tsx scripts/migrate.ts --rollback",
     "db:seed": "tsx scripts/seed.ts",
     "db:bootstrap-sql": "tsx scripts/print-bootstrap-sql.ts",
+    "db:check-sql": "tsx scripts/print-bootstrap-sql.ts --check-only",
     "db:reset": "tsx scripts/migrate.ts --reset && tsx scripts/seed.ts",
     "test": "vitest run -c vitest.config.ts",
     "test:unit": "vitest run -c vitest.config.ts",

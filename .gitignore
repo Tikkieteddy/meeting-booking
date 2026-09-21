@@ -51,3 +51,4 @@ yarn-error.log*
 
 # ไฟล์ SQL ที่สร้างขึ้นเพื่อเอาไปวางใน SQL Editor — สร้างใหม่ได้เสมอด้วย npm run db:bootstrap-sql
 /bootstrap.sql
+/check-database.sql
