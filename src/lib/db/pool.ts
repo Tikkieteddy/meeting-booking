@@ -51,6 +51,13 @@ export function getPool(): Pool {
     // เพื่อไม่กินโควตาและไม่ถือ connection ของ pooler ไว้เปล่า ๆ
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 10_000,
+    /*
+     * ระวัง: ถ้า DATABASE_URL มี sslmode อยู่ในสาย ค่านั้นจะ "ชนะ" ตัวเลือกบรรทัดนี้
+     * (pg ให้ค่าจาก connection string ทับค่าที่ส่งเข้ามา — ทดสอบยืนยันแล้ว)
+     * สายของ Neon มี ?sslmode=require ติดมาเสมอ จึงได้การตรวจใบรับรองแบบเต็ม
+     * ซึ่งเป็นสิ่งที่ต้องการ บรรทัดนี้จึงมีผลเฉพาะสายที่ไม่มี sslmode
+     * อย่า "แก้" ให้ข้ามการตรวจใบรับรองโดยไม่จำเป็น — มันคือการเปิดช่องให้ดักข้อมูลกลางทาง
+     */
     ssl: cfg.DATABASE_SSL ? { rejectUnauthorized: false } : undefined,
     application_name: 'tnn-meeting',
   });

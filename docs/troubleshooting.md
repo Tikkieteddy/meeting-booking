@@ -52,7 +52,15 @@ npm run db:seed
 
 ### `self signed certificate` หรือ `SSL required`
 
-ตั้ง `DATABASE_SSL=true` ใน `.env.local` และอย่าลบ `?sslmode=require` ออกจาก connection string (จำเป็นเมื่อต่อ Neon)
+**ตัวที่ตัดสินคือ `sslmode` ในตัว connection string ไม่ใช่ `DATABASE_SSL`** —
+ไลบรารี `pg` ให้ค่าใน connection string ชนะค่าที่โค้ดส่งเข้าไป (ทดสอบยืนยันแล้ว)
+
+- ต่อ **Neon**: เก็บ `?sslmode=require` ที่ติดมากับสายไว้ตามเดิม ใบรับรองของ Neon
+  ออกโดยผู้ออกใบรับรองสาธารณะ Node จึงตรวจผ่านเอง — อาการนี้จะไม่เกิด
+- ต่อ **PostgreSQL ในเครื่องตัวเอง** ที่ใช้ใบรับรองแบบสร้างเอง: อาการนี้เกิดเพราะ
+  `sslmode=require` สั่งให้ตรวจใบรับรองจริงจัง ให้ **ลบ `?sslmode=require` ออก**
+  แล้วตั้ง `DATABASE_SSL=false` (ในเครื่องตัวเองไม่ต้องเข้ารหัส)
+- `DATABASE_SSL=true` มีผลเฉพาะเมื่อ connection string **ไม่มี** `sslmode` อยู่แล้ว
 
 ### `permission denied for schema public`
 

@@ -26,7 +26,7 @@
 |---|---|---|---|---|---|---|
 | `DATABASE_URL` | ✅ | Server (**ความลับ**) | เส้น PostgreSQL บนเครื่อง | เส้น pooler ของ Neon staging | เส้น pooler ของ Neon prod | ★ **ชื่อ host ต้องมี `-pooler`** |
 | `DIRECT_URL` | – | Server (**ความลับ**) | เหมือน `DATABASE_URL` | – | – | ★ **ห้ามใส่ใน Vercel** ใช้เฉพาะรัน migration บนเครื่อง (เส้นที่ไม่มี `-pooler`) |
-| `DATABASE_SSL` | – | Server | `false` | `true` | `true` | Neon ต้องเป็น `true` |
+| `DATABASE_SSL` | – | Server | `false` | `true` | `true` | มีผลเฉพาะเมื่อ connection string ไม่มี `sslmode` — สายของ Neon มีอยู่แล้ว ค่านี้จึงเป็นแค่ตัวสำรอง |
 | `DATABASE_POOL_MAX` | – | Server | `5` | `5` | `5` | บน serverless ไม่ควรเกิน 5 ต่อ instance |
 | `TEST_DATABASE_URL` | – | Server (**ความลับ**) | ฐานข้อมูลที่ชื่อมีคำว่า `test` | – | – | ใช้เฉพาะเทสต์ integration ระบบจะปฏิเสธถ้าชื่อไม่มีคำว่า test |
 

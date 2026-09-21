@@ -195,7 +195,10 @@ postgresql://neondb_owner:PASSWORD@ep-xxxx-xxxx.ap-southeast-1.aws.neon.tech/neo
 >   (เส้น pooler รับได้หลักพัน connection เส้นตรงรับได้ไม่ถึงร้อย)
 > - `DIRECT_URL` **ห้ามใส่ใน Vercel เด็ดขาด** ใส่ไว้แค่ในไฟล์ `.env.local` บนเครื่องตัวเอง
 >
-> ทั้งสองเส้นมี `?sslmode=require` ติดมาให้แล้ว **อย่าลบออก** และให้ตั้ง `DATABASE_SSL=true` ด้วย
+> **copy ทั้งเส้นมาโดยไม่แก้อะไร** รวมทุกอย่างหลังเครื่องหมาย `?`
+> (`sslmode=require` และ `channel_binding=require`) ค่าเหล่านี้สั่งให้เข้ารหัส
+> การเชื่อมต่อและตรวจใบรับรองของเซิร์ฟเวอร์ ซึ่งใบรับรองของ Neon ผ่านการตรวจอยู่แล้ว
+> ส่วน `channel_binding` ไลบรารีที่ระบบใช้จะข้ามไปเอง ไม่ทำให้พัง (ทดสอบยืนยันแล้ว)
 
 **รหัสผ่านอยู่ในตัว connection string แล้ว** — copy ทั้งเส้นไปเก็บในที่เก็บความลับขององค์กร
 (password manager) ทันที ถ้าเผลอทำหาย กด **Reset password** ในหน้า Roles ของ Neon
@@ -257,7 +260,7 @@ where relname in ('bookings','profiles','audit_logs','rooms','user_roles','notif
 |---|---|---|
 | `connect ETIMEDOUT` หรือ `ECONNREFUSED` | connection string ผิด หรือฐานข้อมูลกำลังตื่นจากโหมดหลับ | ลองรันคำสั่งเดิมอีกครั้งหนึ่งรอบ ถ้ายังไม่ได้ให้ copy connection string ใหม่จาก Dashboard |
 | `password authentication failed` | copy connection string ไม่ครบ หรือรหัสผ่านถูก reset | copy ทั้งเส้นใหม่จากกล่อง Connect อย่าพิมพ์เอง |
-| `no pg_hba.conf entry ... no encryption` | ลบ `?sslmode=require` ออกไป | ใส่กลับเข้าไป และตั้ง `DATABASE_SSL=true` |
+| `no pg_hba.conf entry ... no encryption` | ลบ `?sslmode=require` ออกไป | ใส่กลับเข้าไปให้เหมือนที่ copy มา |
 | `permission denied to create extension` | ใช้ผู้ใช้ที่ไม่ใช่ `neondb_owner` | ใช้ connection string ที่ Dashboard ให้มาโดยไม่แก้ชื่อผู้ใช้ |
 | `prepared statement ... already exists` | เผลอใช้เส้น `-pooler` รัน migration | migration ต้องใช้ `DIRECT_URL` ที่เป็นเส้นตรง สคริปต์เลือกให้อัตโนมัติถ้าตั้งค่าไว้ |
 
@@ -437,7 +440,7 @@ curl -o /dev/null -w "%{http_code}\n" https://tnn-meeting.vercel.app/login
 | อาการ | สาเหตุที่พบบ่อย | วิธีแก้ |
 |---|---|---|
 | Build ล้มเหลว | TypeScript error | รัน `npm run build` บนเครื่องก่อน push ทุกครั้ง |
-| `/api/health` ตอบ 503 | `DATABASE_URL` ผิด หรือลืม `DATABASE_SSL=true` | ตรวจค่าใน Settings → Environment Variables แล้ว Redeploy |
+| `/api/health` ตอบ 503 | `DATABASE_URL` ผิด หรือ copy มาไม่ครบเส้น | ตรวจค่าใน Settings → Environment Variables ว่าลงท้ายด้วย `sslmode=require` ครบ แล้ว Redeploy |
 | `ตั้งค่า Environment variable ไม่ครบ` | ลืมตัวแปรบังคับ เช่น `AUTH_SECRET` | ข้อความ error จะบอกชื่อตัวแปรที่ขาด ใส่ให้ครบแล้ว Redeploy |
 | หน้าเว็บขึ้นแต่ล็อกอินไม่ได้ | ยังไม่ได้รัน migration บนฐานข้อมูลนี้ | กลับไปทำขั้น 2.3 |
 
