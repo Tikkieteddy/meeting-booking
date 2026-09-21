@@ -152,30 +152,62 @@ function main() {
   out.push('COMMIT;');
   out.push('');
   out.push('-- ' + '='.repeat(72));
-  out.push('-- ตรวจผล — ทุกบรรทัดต้องได้ค่าตามที่เขียนกำกับไว้');
+  out.push('-- ตรวจผล — ต้องขึ้นคำว่า ผ่าน ทุกแถว');
   out.push('-- ' + '='.repeat(72));
-  out.push('-- ต้องยกระดับสิทธิ์อีกครั้ง เพราะคำสั่งตรวจอยู่นอกธุรกรรมข้างบน');
+  out.push('--');
+  out.push('-- รวมเป็นคำสั่งเดียวโดยเจตนา เพราะหน้าเว็บ SQL Editor ส่วนใหญ่');
+  out.push('-- แสดงผลของคำสั่งสุดท้ายเท่านั้น ถ้าแยกหลายคำสั่งผู้ใช้จะไม่เห็นผลครบ');
+  out.push('--');
+  out.push('-- ต้องยกระดับสิทธิ์อีกครั้ง เพราะคำสั่งนี้อยู่นอกธุรกรรมข้างบน');
   out.push('-- ถ้าไม่ตั้ง จะนับได้ 0 ทุกตาราง ซึ่งไม่ใช่ว่าข้อมูลไม่เข้า แต่เป็นเพราะ');
   out.push('-- ระบบกันข้อมูลข้ามผู้ใช้ซ่อนแถวไว้จากคนที่ไม่ได้ล็อกอิน');
   out.push("SELECT set_config('app.user_role', 'service_role', false);");
-  out.push(`SELECT count(*) AS migration_ต้องได้_${files.length} FROM schema_migrations;`);
-  out.push("SELECT count(*) AS องค์กร_ต้องได้_1 FROM organizations;");
-  out.push(`SELECT count(*) AS บทบาท_ต้องได้_${ALL_ROLES.length} FROM roles;`);
-  out.push(
-    `SELECT count(*) AS สิทธิ์_ต้องได้_${Object.keys(PERMISSIONS).length} FROM permissions;`,
-  );
-  out.push(
-    "SELECT count(*) AS ตัวกันจองซ้อน_ต้องได้_1 FROM pg_constraint WHERE conname = 'bookings_no_overlap';",
-  );
-  out.push(
-    "SELECT count(*) AS extension_ต้องได้_2 FROM pg_extension WHERE extname IN ('pgcrypto','btree_gist');",
-  );
-  out.push('-- ตารางข้อมูลต้องเปิดการกันข้อมูลข้ามผู้ใช้ทุกตาราง (ทุกแถวต้องเป็น t, t)');
-  out.push('SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class');
-  out.push(
-    "WHERE relname IN ('bookings','profiles','audit_logs','rooms','user_roles','notification_jobs')",
-  );
-  out.push('ORDER BY relname;');
+  out.push('');
+
+  /*
+   * ตารางตรวจผลแถวเดียวต่อรายการ: ลำดับ / รายการ / นับได้ / ต้องได้ / ผล
+   * ผู้ใช้ที่ไม่เขียนโค้ดดูแค่คอลัมน์ "ผล" ว่าเป็น ผ่าน ทุกแถวหรือไม่
+   */
+  const checks: { label: string; expected: number; from: string }[] = [
+    { label: 'ตารางถูกสร้างครบ', expected: files.length, from: 'SELECT count(*) FROM schema_migrations' },
+    { label: 'ข้อมูลองค์กร', expected: 1, from: 'SELECT count(*) FROM organizations' },
+    { label: 'บทบาทผู้ใช้', expected: ALL_ROLES.length, from: 'SELECT count(*) FROM roles' },
+    {
+      label: 'สิทธิ์การใช้งาน',
+      expected: Object.keys(PERMISSIONS).length,
+      from: 'SELECT count(*) FROM permissions',
+    },
+    {
+      label: 'ตัวกันจองห้องซ้อนกัน',
+      expected: 1,
+      from: "SELECT count(*) FROM pg_constraint WHERE conname = 'bookings_no_overlap'",
+    },
+    {
+      label: 'ส่วนขยายฐานข้อมูล',
+      expected: 2,
+      from: "SELECT count(*) FROM pg_extension WHERE extname IN ('pgcrypto','btree_gist')",
+    },
+    {
+      label: 'ตารางที่กันข้อมูลข้ามผู้ใช้',
+      expected: 6,
+      from:
+        "SELECT count(*) FROM pg_class WHERE relrowsecurity AND relforcerowsecurity AND relname IN " +
+        "('bookings','profiles','audit_logs','rooms','user_roles','notification_jobs')",
+    },
+  ];
+
+  out.push('SELECT');
+  out.push('  "ลำดับ", "รายการที่ตรวจ", "นับได้", "ต้องได้",');
+  out.push('  CASE WHEN "นับได้" = "ต้องได้" THEN \'ผ่าน\' ELSE \'ไม่ผ่าน — แจ้งนักพัฒนา\' END AS "ผล"');
+  out.push('FROM (');
+  checks.forEach((c, i) => {
+    const comma = i === checks.length - 1 ? '' : ' UNION ALL';
+    out.push(
+      `  SELECT ${i + 1} AS "ลำดับ", ${lit(c.label)} AS "รายการที่ตรวจ", (${c.from}) AS "นับได้", ${c.expected} AS "ต้องได้"${comma}`,
+    );
+  });
+  out.push(') AS ผลการตรวจ');
+  out.push('ORDER BY "ลำดับ";');
 
   process.stdout.write(out.join('\n') + '\n');
 }
