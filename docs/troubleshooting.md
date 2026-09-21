@@ -269,7 +269,7 @@ postgresql://neondb_owner:pw@ep-xxxx-xxxx-pooler.ap-southeast-1.aws.neon.tech/ne
 
 ### `/api/health` ตอบ 503 `database: down`
 
-1. Neon Console → สถานะโปรเจกต์และ branch `main` ปกติไหม
+1. Neon Console → สถานะโปรเจกต์และ branch หลักปกติไหม
 2. โปรเจกต์ Free tier ถูกพักเพราะไม่มีใครใช้เกิน 7 วันหรือไม่ → กด Restore project
 3. <https://neonstatus.com> มีเหตุขัดข้องหรือไม่
 4. รหัสผ่านฐานข้อมูลถูกเปลี่ยนหรือไม่
@@ -355,6 +355,26 @@ where lower(p.email) = lower('user@example.com');
    และพิจารณาระงับบัญชีที่เกี่ยวข้องชั่วคราว
 
 ---
+
+
+### `Hobby accounts are limited to daily cron jobs` ตอน deploy
+
+Vercel แผนฟรีตั้ง cron ได้แค่วันละครั้ง ถ้า `vercel.json` มีตารางที่ถี่กว่านั้น
+(เช่น `*/5 * * * *`) การ deploy จะล้มทันที
+
+**วิธีแก้** ตั้งใน `vercel.json` ให้เป็นวันละครั้ง เช่น `0 1 * * *`
+แล้วใช้ตัวตั้งเวลาภายนอกยิงเข้ามาทุก 5 นาทีแทน
+ดู [infrastructure-setup.md](infrastructure-setup.md) ข้อ 3.7
+
+### อีเมลยืนยันมาช้าเป็นวัน หรือไม่ได้รับการเตือนก่อนประชุม
+
+**สาเหตุอันดับหนึ่ง:** ยังไม่ได้ตั้งตัวตั้งเวลาภายนอก ระบบจึงส่งคิวแค่วันละครั้ง
+ตามที่ `vercel.json` ตั้งไว้
+
+**ตรวจ** เปิดหน้า **สถานะระบบ** ในเมนูผู้ดูแลระบบ ถ้าเห็นงานค้างเป็นจำนวนมาก
+และเวลาที่ค้างนานเป็นชั่วโมง แปลว่าไม่มีใครมาเรียกคิว
+
+**วิธีแก้** ตั้งตัวตั้งเวลาภายนอกตาม [infrastructure-setup.md](infrastructure-setup.md) ข้อ 3.7
 
 ## ขอความช่วยเหลือเพิ่ม
 

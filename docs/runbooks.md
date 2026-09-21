@@ -257,7 +257,7 @@ echo | openssl s_client -connect meeting.example.com:443 2>/dev/null | openssl x
 
 ### ตรวจตามลำดับ
 
-1. Neon Console → สถานะโปรเจกต์และ branch `main` ปกติไหม
+1. Neon Console → สถานะโปรเจกต์และ branch หลักปกติไหม
 2. <https://neonstatus.com> มีเหตุขัดข้องไหม
 3. Neon → **Monitoring** → ดูจำนวน connection และการใช้ CPU
 
