@@ -1,0 +1,183 @@
+/**
+ * พิมพ์ SQL ชุดเดียวที่เตรียมฐานข้อมูล production ให้พร้อมใช้งาน
+ *
+ * ใช้เมื่อ **ไม่สะดวกรันคำสั่งจาก terminal** เช่นผู้ดูแลระบบเป็นคนที่ไม่เขียนโค้ด
+ * ให้เอาผลลัพธ์ไปวางใน SQL Editor ของผู้ให้บริการฐานข้อมูล (Neon) แล้วกดรันครั้งเดียว
+ *
+ *   npm run db:bootstrap-sql > bootstrap.sql
+ *
+ * ผลลัพธ์ใช้ได้กับ **ฐานข้อมูลเปล่า** เท่านั้น ทุกคำสั่งอยู่ในธุรกรรมเดียว
+ * ถ้ารันซ้ำบนฐานข้อมูลที่มีตารางแล้วจะ error และย้อนกลับทั้งหมด ไม่ทำข้อมูลเสียหาย
+ *
+ * สิ่งที่ SQL ชุดนี้ทำ
+ *   1. สร้างตารางทั้งหมดจากไฟล์ใน db/migrations (ไฟล์ .up.sql เรียงตามเลข)
+ *   2. จดใน schema_migrations ว่า migration ทุกไฟล์ถูกรันแล้ว
+ *      เพื่อให้ `npm run db:migrate` ในอนาคตไม่รันซ้ำ และรัน migration ใหม่ต่อได้ถูกจุด
+ *   3. ใส่ข้อมูลตั้งต้นที่ระบบต้องมีถึงจะทำงานได้ — องค์กร 1 แถว, roles,
+ *      permissions และการจับคู่ role กับ permission
+ *
+ * สิ่งที่ SQL ชุดนี้ **ไม่** ทำ — ไม่ใส่ผู้ใช้ตัวอย่าง ห้องตัวอย่าง หรือการจองตัวอย่าง
+ * (ต่างจาก `npm run db:seed` ซึ่งมีข้อมูลตัวอย่างและห้ามใช้กับ production)
+ *
+ * ทำไมต้องมีข้อ 3: การสมัครสมาชิกจะล้มเหลวด้วยข้อความ "ยังไม่ได้ตั้งค่าองค์กรในระบบ"
+ * ถ้าไม่มีแถวในตาราง organizations และตาราง user_roles มี foreign key ไปที่
+ * roles(code) จึงต้องมี roles ก่อนถึงจะให้บทบาทใครได้
+ */
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { ALL_ROLES, ROLES, PERMISSIONS, ROLE_PERMISSIONS } from '../src/lib/rbac/permissions';
+
+const MIGRATIONS_DIR = join(process.cwd(), 'db', 'migrations');
+
+/** ชื่อองค์กรเริ่มต้น เปลี่ยนได้ด้วย ORG_NAME / ORG_SLUG ตอนรันสคริปต์ */
+const ORG_NAME = process.env.ORG_NAME ?? 'องค์กรของฉัน (แก้ชื่อนี้ได้ภายหลังในหน้าตั้งค่า)';
+const ORG_SLUG = process.env.ORG_SLUG ?? 'main';
+
+/** ใส่เครื่องหมายคำพูดให้ค่าที่จะฝังใน SQL — escape ตามกฎของ PostgreSQL */
+function lit(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function migrationFiles(): { version: string; name: string; sql: string }[] {
+  return readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.up.sql'))
+    .sort()
+    .map((file) => {
+      const base = file.replace(/\.up\.sql$/, '');
+      const version = base.slice(0, base.indexOf('_'));
+      const name = base.slice(base.indexOf('_') + 1);
+      return { version, name, sql: readFileSync(join(MIGRATIONS_DIR, file), 'utf8').trimEnd() };
+    });
+}
+
+function main() {
+  const files = migrationFiles();
+  const out: string[] = [];
+
+  out.push('--');
+  out.push('-- ระบบจองห้องประชุม TNN — SQL เตรียมฐานข้อมูลสำหรับใช้งานจริง');
+  out.push('--');
+  out.push('-- วิธีใช้: copy ทั้งไฟล์นี้ไปวางใน SQL Editor ของ Neon แล้วกด Run ครั้งเดียว');
+  out.push('-- ใช้เวลาไม่เกิน 30 วินาที');
+  out.push('--');
+  out.push('-- ★ ใช้กับฐานข้อมูลเปล่าเท่านั้น (ฐานข้อมูลที่เพิ่งสร้างใหม่)');
+  out.push('--   ถ้าเผลอรันซ้ำบนฐานข้อมูลที่มีตารางอยู่แล้ว จะขึ้น error ว่าตารางมีอยู่แล้ว');
+  out.push('--   และ **ไม่มีอะไรเปลี่ยนแปลง** เพราะทุกคำสั่งอยู่ในธุรกรรมเดียวที่ย้อนกลับทั้งหมด');
+  out.push('--   จึงปลอดภัย แค่ต้องอ่าน error ให้เข้าใจว่าไม่ใช่เรื่องเสียหาย');
+  out.push('--');
+  out.push('-- ไฟล์นี้สร้างอัตโนมัติจาก db/migrations และ src/lib/rbac/permissions.ts');
+  out.push('-- ห้ามแก้ด้วยมือ — ถ้าต้องแก้ ให้แก้ต้นทางแล้วสร้างใหม่ด้วย npm run db:bootstrap-sql');
+  out.push('--');
+  out.push('');
+  out.push('BEGIN;');
+  out.push('');
+  out.push('-- ' + '='.repeat(72));
+  out.push('-- ยกระดับสิทธิ์ของธุรกรรมนี้เป็น "ระบบ"');
+  out.push('-- ' + '='.repeat(72));
+  out.push('-- ตารางข้อมูลทุกตารางเปิดการกันข้อมูลข้ามผู้ใช้แบบบังคับ (FORCE ROW LEVEL SECURITY)');
+  out.push('-- ซึ่งบังคับกับเจ้าของตารางด้วย ถ้าไม่ตั้งค่าบรรทัดล่างนี้ การใส่ข้อมูลตั้งต้น');
+  out.push('-- จะถูกปฏิเสธด้วยข้อความ new row violates row-level security policy');
+  out.push('--');
+  out.push('-- ค่า true ท้ายคำสั่งทำให้มีผลเฉพาะในธุรกรรมนี้ จบแล้วหมดผลทันที');
+  out.push("SELECT set_config('app.user_role', 'service_role', true);");
+  out.push('');
+
+  // ── ตารางจดประวัติการรัน migration ──
+  out.push('-- ตารางจดว่า migration ไฟล์ไหนถูกรันไปแล้ว');
+  out.push('CREATE TABLE IF NOT EXISTS schema_migrations (');
+  out.push('  version    text PRIMARY KEY,');
+  out.push('  name       text NOT NULL,');
+  out.push('  applied_at timestamptz NOT NULL DEFAULT now()');
+  out.push(');');
+  out.push('');
+
+  // ── เนื้อ migration แต่ละไฟล์ ──
+  for (const m of files) {
+    out.push('-- ' + '='.repeat(72));
+    out.push(`-- migration ${m.version} — ${m.name}`);
+    out.push('-- ' + '='.repeat(72));
+    out.push(m.sql);
+    out.push('');
+    out.push(
+      `INSERT INTO schema_migrations (version, name) VALUES (${lit(m.version)}, ${lit(m.name)})`,
+    );
+    out.push('  ON CONFLICT (version) DO NOTHING;');
+    out.push('');
+  }
+
+  // ── ข้อมูลตั้งต้นที่ระบบต้องมี ──
+  out.push('-- ' + '='.repeat(72));
+  out.push('-- ข้อมูลตั้งต้นที่ระบบต้องมีถึงจะทำงานได้ (ไม่ใช่ข้อมูลตัวอย่าง)');
+  out.push('-- ' + '='.repeat(72));
+  out.push('');
+  out.push('-- องค์กร: ถ้าไม่มีแถวนี้ การสมัครสมาชิกจะล้มเหลว');
+  out.push('INSERT INTO organizations (name, slug, timezone, locale)');
+  out.push(`VALUES (${lit(ORG_NAME)}, ${lit(ORG_SLUG)}, 'Asia/Bangkok', 'th')`);
+  out.push('ON CONFLICT (slug) DO UPDATE SET name = excluded.name;');
+  out.push('');
+
+  out.push('-- บทบาทผู้ใช้ (roles)');
+  for (const code of ALL_ROLES) {
+    const meta = ROLES[code];
+    out.push(
+      `INSERT INTO roles (code, name_th, name_en, rank) VALUES (${lit(code)}, ${lit(meta.nameTh)}, ${lit(meta.nameEn)}, ${meta.rank})`,
+    );
+    out.push(
+      '  ON CONFLICT (code) DO UPDATE SET name_th = excluded.name_th, name_en = excluded.name_en, rank = excluded.rank;',
+    );
+  }
+  out.push('');
+
+  out.push('-- สิทธิ์ทั้งหมดที่ระบบรู้จัก (permissions)');
+  for (const [code, meta] of Object.entries(PERMISSIONS)) {
+    out.push(
+      `INSERT INTO permissions (code, resource, action, description) VALUES (${lit(code)}, ${lit(meta.resource)}, ${lit(meta.action)}, ${lit(meta.description)})`,
+    );
+    out.push('  ON CONFLICT (code) DO UPDATE SET description = excluded.description;');
+  }
+  out.push('');
+
+  out.push('-- จับคู่บทบาทกับสิทธิ์ — ล้างก่อนใส่ใหม่ เพื่อให้ตรงกับโค้ดเสมอ');
+  out.push('DELETE FROM role_permissions;');
+  for (const [roleCode, perms] of Object.entries(ROLE_PERMISSIONS)) {
+    if (perms.length === 0) {
+      out.push(`-- ${roleCode}: ไม่มีสิทธิ์ใด ๆ โดยเจตนา (ดูตารางได้เท่านั้น)`);
+      continue;
+    }
+    const values = perms.map((p) => `(${lit(roleCode)}, ${lit(p)})`).join(', ');
+    out.push(`INSERT INTO role_permissions (role_code, permission_code) VALUES ${values};`);
+  }
+  out.push('');
+
+  out.push('COMMIT;');
+  out.push('');
+  out.push('-- ' + '='.repeat(72));
+  out.push('-- ตรวจผล — ทุกบรรทัดต้องได้ค่าตามที่เขียนกำกับไว้');
+  out.push('-- ' + '='.repeat(72));
+  out.push('-- ต้องยกระดับสิทธิ์อีกครั้ง เพราะคำสั่งตรวจอยู่นอกธุรกรรมข้างบน');
+  out.push('-- ถ้าไม่ตั้ง จะนับได้ 0 ทุกตาราง ซึ่งไม่ใช่ว่าข้อมูลไม่เข้า แต่เป็นเพราะ');
+  out.push('-- ระบบกันข้อมูลข้ามผู้ใช้ซ่อนแถวไว้จากคนที่ไม่ได้ล็อกอิน');
+  out.push("SELECT set_config('app.user_role', 'service_role', false);");
+  out.push(`SELECT count(*) AS migration_ต้องได้_${files.length} FROM schema_migrations;`);
+  out.push("SELECT count(*) AS องค์กร_ต้องได้_1 FROM organizations;");
+  out.push(`SELECT count(*) AS บทบาท_ต้องได้_${ALL_ROLES.length} FROM roles;`);
+  out.push(
+    `SELECT count(*) AS สิทธิ์_ต้องได้_${Object.keys(PERMISSIONS).length} FROM permissions;`,
+  );
+  out.push(
+    "SELECT count(*) AS ตัวกันจองซ้อน_ต้องได้_1 FROM pg_constraint WHERE conname = 'bookings_no_overlap';",
+  );
+  out.push(
+    "SELECT count(*) AS extension_ต้องได้_2 FROM pg_extension WHERE extname IN ('pgcrypto','btree_gist');",
+  );
+  out.push('-- ตารางข้อมูลต้องเปิดการกันข้อมูลข้ามผู้ใช้ทุกตาราง (ทุกแถวต้องเป็น t, t)');
+  out.push('SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class');
+  out.push(
+    "WHERE relname IN ('bookings','profiles','audit_logs','rooms','user_roles','notification_jobs')",
+  );
+  out.push('ORDER BY relname;');
+
+  process.stdout.write(out.join('\n') + '\n');
+}
+
+main();

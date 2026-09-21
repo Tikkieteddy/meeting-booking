@@ -48,3 +48,6 @@ yarn-error.log*
 
 # รายงาน Lighthouse ที่รันในเครื่อง — ไม่ต้องเก็บเข้า repo
 /lighthouse-report.html
+
+# ไฟล์ SQL ที่สร้างขึ้นเพื่อเอาไปวางใน SQL Editor — สร้างใหม่ได้เสมอด้วย npm run db:bootstrap-sql
+/bootstrap.sql

@@ -204,7 +204,37 @@ postgresql://neondb_owner:PASSWORD@ep-xxxx-xxxx.ap-southeast-1.aws.neon.tech/neo
 (password manager) ทันที ถ้าเผลอทำหาย กด **Reset password** ในหน้า Roles ของ Neon
 แล้วต้องแก้ค่าในทุกที่ที่ใช้ แล้ว Redeploy
 
-### 2.3 รัน migration และตรวจว่าครบ
+### 2.3 สร้างตารางในฐานข้อมูล — เลือกทางใดทางหนึ่ง
+
+มีสองทาง ได้ผลเหมือนกัน เลือกตามความถนัด
+
+| ทาง | เหมาะกับใคร |
+|---|---|
+| **ก. วางคำสั่งในหน้าเว็บ Neon** | คนที่ไม่เขียนโค้ด ไม่ต้องลงโปรแกรมอะไรบนเครื่องเลย |
+| **ข. รันคำสั่งจาก terminal** | นักพัฒนาที่มีโปรเจกต์อยู่บนเครื่องแล้ว |
+
+#### ทาง ก — วางคำสั่งในหน้าเว็บ Neon (ไม่ต้องใช้ terminal)
+
+1. ขอไฟล์ `bootstrap.sql` จากนักพัฒนา (สร้างด้วย `npm run db:bootstrap-sql > bootstrap.sql`)
+2. เปิดไฟล์ด้วย Notepad หรือ TextEdit **เลือกทั้งหมด** แล้ว copy
+3. ที่หน้า Neon เมนูซ้าย กด **Postgres database** แล้วเลือก **SQL Editor**
+4. วางลงในช่องใหญ่ แล้วกด **Run**
+
+**สำเร็จเมื่อ** ผลด้านล่างขึ้นตัวเลขตรงกับที่เขียนกำกับไว้ทุกบรรทัด เช่น
+`migration_ต้องได้_7` ได้ `7`, `องค์กร_ต้องได้_1` ได้ `1`, `บทบาท_ต้องได้_5` ได้ `5`,
+`สิทธิ์_ต้องได้_13` ได้ `13` และตารางท้ายสุดต้องเป็น `t` `t` ทั้ง 6 แถว
+
+**ถ้าขึ้น error ว่าตารางมีอยู่แล้ว** แปลว่าเคยรันไปแล้ว ไม่มีอะไรเสียหาย
+เพราะคำสั่งทั้งชุดอยู่ในธุรกรรมเดียวที่ย้อนกลับทั้งหมดเมื่อมีข้อผิดพลาด
+
+> ไฟล์นี้ทำสองอย่างที่ `npm run db:migrate` อย่างเดียวทำไม่ได้ คือใส่**ข้อมูลตั้งต้น**
+> ที่ระบบต้องมี (องค์กร 1 แถว บทบาท และสิทธิ์) ถ้าไม่มีสิ่งนี้ **การสมัครสมาชิก
+> จะล้มเหลว** ด้วยข้อความ "ยังไม่ได้ตั้งค่าองค์กรในระบบ"
+> และไฟล์นี้ **ไม่มี** ผู้ใช้ตัวอย่างหรือห้องตัวอย่าง จึงใช้กับ production ได้
+
+#### ทาง ข — รันคำสั่งจาก terminal
+
+**ขั้นตอน**
 
 **ทำที่ไหน:** Terminal บนเครื่องของคุณ ในโฟลเดอร์โปรเจกต์
 
@@ -283,17 +313,35 @@ npm run db:seed
 3. เปิด Neon → **SQL Editor** → รันคำสั่งนี้ (แก้อีเมลเป็นของคุณ)
 
 ```sql
--- ยกสิทธิ์ผู้ดูแลระบบสูงสุดให้บัญชีแรก
-insert into user_roles (profile_id, role_code, scope_type)
-select p.id, 'super_admin', 'organization'
-from profiles p
-where lower(p.email) = lower('admin@tnnthailand.com')
-on conflict do nothing;
+BEGIN;
 
--- ตรวจผล
-select p.email, ur.role_code from profiles p
-join user_roles ur on ur.profile_id = p.id;
+-- ★ บรรทัดนี้ห้ามลืม
+-- ตารางข้อมูลทุกตารางเปิดการกันข้อมูลข้ามผู้ใช้แบบบังคับ ถ้าไม่ยกระดับสิทธิ์ก่อน
+-- คำสั่งข้างล่างจะ "ไม่ขึ้น error แต่ก็ไม่ทำอะไรเลย" เพราะมองไม่เห็นแถวใน profiles
+SELECT set_config('app.user_role', 'service_role', true);
+
+-- ยกสิทธิ์ผู้ดูแลระบบสูงสุดให้บัญชีแรก (แก้อีเมลเป็นของคุณ)
+INSERT INTO user_roles (profile_id, role_code, scope_type)
+SELECT p.id, 'super_admin', 'organization'
+FROM profiles p
+WHERE lower(p.email) = lower('admin@tnnthailand.com')
+ON CONFLICT DO NOTHING;
+
+-- ทำเครื่องหมายว่ายืนยันอีเมลแล้ว เผื่อยังไม่ได้ตั้งค่าอีเมลขาออก
+UPDATE profiles SET email_verified_at = coalesce(email_verified_at, now())
+WHERE lower(email) = lower('admin@tnnthailand.com');
+
+-- ตรวจผล — ต้องเห็น super_admin
+SELECT p.email, string_agg(ur.role_code, ', ' ORDER BY ur.role_code) AS บทบาท
+FROM profiles p JOIN user_roles ur ON ur.profile_id = p.id
+GROUP BY p.email;
+
+COMMIT;
 ```
+
+> **ยังไม่ได้ตั้งค่าอีเมลขาออกก็ล็อกอินได้** — การสมัครสมาชิกตั้งสถานะบัญชีเป็น
+> ใช้งานได้ทันที (ทดสอบยืนยันแล้ว) อีเมลยืนยันเป็นเพียงการยืนยันตัวตนเพิ่ม
+> ไม่ได้ปิดกั้นการเข้าใช้งาน
 
 **ถ้าสำเร็จจะเห็น:** อีเมลของคุณคู่กับ `super_admin` และเมื่อ refresh หน้าเว็บจะเห็นเมนู
 "ผู้ดูแลระบบ" ในเมนูโปรไฟล์
