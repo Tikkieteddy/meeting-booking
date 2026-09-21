@@ -6,8 +6,15 @@ import { logger } from '@/lib/util/logger';
  * การเชื่อมต่อฐานข้อมูล PostgreSQL
  *
  * บทเรียนจากโปรเจกต์เดิม (handoff ข้อ 3.4):
- *   DATABASE_URL ที่เว็บใช้ต้องเป็น Transaction pooler พอร์ต 6543
- *   ส่วน DIRECT_URL (Session mode พอร์ต 5432) ใช้เฉพาะรัน migration และห้ามใส่ใน Vercel
+ *   DATABASE_URL ที่เว็บใช้ต้องเป็นเส้นที่วิ่งผ่าน connection pooler โหมด transaction
+ *   (บน Neon คือเส้นที่ชื่อ host มี "-pooler") เพราะ serverless เปิด-ปิด connection ถี่
+ *   ถ้าใช้เส้นตรง connection จะเต็มโควตาแล้วเว็บล่มตอนคนเข้าพร้อมกัน
+ *   ส่วน DIRECT_URL (เส้นตรง) ใช้เฉพาะรัน migration และห้ามใส่ใน Vercel
+ *
+ *   หมายเหตุสำคัญ: การล็อกห้องใน booking-service ใช้ pg_advisory_xact_lock
+ *   ซึ่งเป็นล็อกระดับ transaction จึงทำงานถูกต้องใต้ pooler โหมดนี้
+ *   ห้ามเปลี่ยนไปใช้ pg_advisory_lock (ระดับ session) เพราะ pooler สลับ connection
+ *   ให้คนอื่นหลังจบ transaction แล้ว ล็อกจะค้างหรือหลุดโดยไม่มีสัญญาณเตือน
  *
  * ความปลอดภัย: ทุก query ที่ทำแทนผู้ใช้ต้องผ่าน withTx() ซึ่งจะตั้งค่า
  * app.user_id / app.user_role ให้ Row Level Security ตรวจสิทธิ์ที่ชั้นฐานข้อมูล
@@ -40,7 +47,8 @@ export function getPool(): Pool {
   pool = new Pool({
     connectionString: cfg.DATABASE_URL,
     max: cfg.DATABASE_POOL_MAX,
-    // Supabase / Vercel: ปิด connection ที่ค้างไว้ไม่นาน เพื่อไม่กิน quota
+    // ผู้ให้บริการแบบ serverless (Neon) และ Vercel: ปิด connection ที่ค้างไว้ไม่นาน
+    // เพื่อไม่กินโควตาและไม่ถือ connection ของ pooler ไว้เปล่า ๆ
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 10_000,
     ssl: cfg.DATABASE_SSL ? { rejectUnauthorized: false } : undefined,

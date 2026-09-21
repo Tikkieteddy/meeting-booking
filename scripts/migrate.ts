@@ -9,8 +9,9 @@
  *   npm run db:migrate -- --reset ย้อนกลับทั้งหมดแล้วรันใหม่ (ห้ามใช้กับ production)
  *   npm run db:migrate -- --status ดูสถานะ
  *
- * ใช้ DIRECT_URL (Session mode พอร์ต 5432) ถ้ามี เพราะ Transaction pooler
- * ไม่รองรับคำสั่งบางอย่างของ DDL — ดู docs/infrastructure-setup.md
+ * ใช้ DIRECT_URL (เส้นที่ต่อตรง ไม่ผ่าน connection pooler) ถ้ามี เพราะ pooler
+ * โหมด transaction ไม่รองรับคำสั่งบางอย่างของ DDL และทำให้ prepared statement ชนกัน
+ * บน Neon คือเส้นที่ชื่อ host ไม่มี "-pooler" — ดู docs/infrastructure-setup.md
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

@@ -1,6 +1,6 @@
 # บันทึกสำหรับผู้พัฒนาต่อ (และ Claude Code ในเซสชันถัดไป)
 
-ระบบจองห้องประชุม TNN — Next.js 15 (App Router) + PostgreSQL (Supabase) + Vercel
+ระบบจองห้องประชุม TNN — Next.js 15 (App Router) + PostgreSQL (Neon) + Vercel
 **สื่อสารและเขียนข้อความในระบบเป็นภาษาไทยเสมอ**
 
 เอกสารทั้งหมดอยู่ใน `docs/` เริ่มที่ [README.md](README.md)
@@ -138,8 +138,10 @@ UI ซ่อนเมนู → API เรียก `requirePermission()` → �
 
 ## จุดที่พลาดกันบ่อย
 
-- `DATABASE_URL` ต้องเป็น **Transaction pooler พอร์ต 6543** บน Vercel
-  (พอร์ต 5432 จะทำให้ connection เต็มแล้วเว็บล่ม) และ **ห้ามใส่ `DIRECT_URL` ใน Vercel**
+- `DATABASE_URL` บน Vercel ต้องเป็นเส้นที่ชื่อ host มี **`-pooler`** (PgBouncer โหมด transaction)
+  เส้นตรงจะทำให้ connection เต็มแล้วเว็บล่ม และ **ห้ามใส่ `DIRECT_URL` ใน Vercel**
+  ระบบใช้ `pg_advisory_xact_lock` (ล็อกระดับ transaction) จึงทำงานถูกต้องใต้ pooler โหมดนี้ —
+  **ห้ามเปลี่ยนไปใช้ล็อกระดับ session** เพราะจะพังเงียบ ๆ เมื่อ connection ถูกสลับ
 - แก้ environment variable แล้วต้อง **Redeploy** ค่าใหม่จึงมีผล
 - ข้อความใน `<label>` ต้องเท่ากับชื่อฟิลด์เป๊ะ ๆ (เครื่องหมาย `*` วางไว้นอก label)
   เพราะ screen reader และเทสต์ใช้ข้อความนี้เป็นชื่อของ control

@@ -33,7 +33,7 @@ dig +short MX example.com
 
 ## 3. Environment variables
 
-- [ ] `DATABASE_URL` เป็นเส้น **Transaction pooler พอร์ต 6543**
+- [ ] `DATABASE_URL` เป็นเส้นที่ชื่อ host มี **`-pooler`**
 - [ ] **ไม่มี `DIRECT_URL` ใน Vercel**
 - [ ] `DATABASE_SSL=true`
 - [ ] `AUTH_SECRET` เป็นค่าสุ่มยาวและ **คนละค่ากับ staging**
@@ -165,7 +165,7 @@ where a.blocks_slot and b.blocks_slot;
 - [ ] Uptime monitor ตรวจ `/login` และ `/api/health` ทุก 5 นาที
 - [ ] Alert เมื่อคิวงานค้างหรือมีงานล้มเหลวถาวร
 - [ ] Alert เมื่ออัตราอีเมลตีกลับสูงผิดปกติ
-- [ ] Alert งบประมาณของ Vercel และ Supabase
+- [ ] Alert งบประมาณของ Vercel และ Neon
 - [ ] Alert โดเมนและ SSL ใกล้หมดอายุ
 - [ ] กำหนดผู้รับ alert และช่องทางแจ้ง (ที่ไม่พึ่งระบบนี้)
 

@@ -21,7 +21,7 @@
                             │ DNS ชี้มาที่ Vercel
                             ▼
                  ┌──────────────────────┐        ┌───────────────────┐
-                 │  Vercel (region sin1)│───────▶│ Supabase          │
+                 │  Vercel (region sin1)│───────▶│ Neon              │
                  │  Next.js + API       │  SQL   │ PostgreSQL        │
                  │  Cron ทุก 5/10 นาที   │        │ (region สิงคโปร์)   │
                  └───────┬───────┬──────┘        └───────────────────┘
@@ -37,8 +37,8 @@
 ### ลำดับการไหลของข้อมูลเมื่อมีคนจองห้อง
 
 1. ผู้ใช้กดช่วงเวลาว่างในปฏิทิน → เบราว์เซอร์ส่งคำขอไปที่ Vercel
-2. Vercel ตรวจว่าล็อกอินอยู่ ตรวจสิทธิ์ ตรวจกฎธุรกิจ แล้วเปิด transaction ไปที่ Supabase
-3. Supabase ล็อกห้องนั้นไว้ ตรวจว่าไม่ชนกับการจองอื่น แล้วบันทึก
+2. Vercel ตรวจว่าล็อกอินอยู่ ตรวจสิทธิ์ ตรวจกฎธุรกิจ แล้วเปิด transaction ไปที่ Neon
+3. Neon (PostgreSQL) ล็อกห้องนั้นไว้ ตรวจว่าไม่ชนกับการจองอื่น แล้วบันทึก
    (ถ้าชนกัน ฐานข้อมูลปฏิเสธเอง แม้มีคนกดพร้อมกันสิบคน)
 4. ในทรานแซกชันเดียวกัน ระบบใส่ "งานแจ้งเตือน" ลงคิว และเขียน audit log
 5. Vercel Cron เรียก `/api/cron/dispatch` ทุก 5 นาที เพื่อส่งอีเมล/LINE จากคิว
@@ -48,7 +48,7 @@
 | บริการ | ใช้ทำอะไร | สิทธิ์ที่ต้องมี | ค่าใช้จ่ายเริ่มต้น |
 |---|---|---|---|
 | GitHub | เก็บโค้ด | สิทธิ์ Admin ของ repository | ฟรี |
-| Supabase | ฐานข้อมูล PostgreSQL | Owner ขององค์กร | ฟรี (Free tier) |
+| Neon | ฐานข้อมูล PostgreSQL | Owner ขององค์กร | ฟรี (Free plan) |
 | Vercel | โฮสต์เว็บ | Owner หรือ Admin ของทีม | ฟรี (Hobby) / Pro ถ้าใช้ในองค์กร |
 | Resend | ส่งอีเมล | Admin | ฟรี 3,000 ฉบับ/เดือน |
 | LINE Developers | ส่งแจ้งเตือน LINE | Admin ของ Provider | ฟรี (จำกัดจำนวนข้อความ/เดือน) |
@@ -63,7 +63,7 @@
 | ชั้น | ต้องแยกยังไง | ห้ามทำเด็ดขาด |
 |---|---|---|
 | ที่เก็บโค้ด | repository ของตัวเอง | ห้ามใส่ปนในโปรเจกต์อื่น |
-| ฐานข้อมูล | Supabase project ใหม่ของตัวเอง | ห้ามสร้างตารางเพิ่มในฐานข้อมูลของระบบอื่น |
+| ฐานข้อมูล | Neon project ใหม่ของตัวเอง | ห้ามสร้างตารางเพิ่มในฐานข้อมูลของระบบอื่น |
 | เว็บโฮสต์ | Vercel project ใหม่ของตัวเอง | ห้าม deploy ทับโปรเจกต์เดิม |
 | ค่าตั้งค่า | ชุดของตัวเอง แยก Development / Preview / Production | ห้ามยืมคีย์ของระบบอื่นมาใช้ |
 | คีย์ส่งอีเมล | API key ใหม่แยกใบ ตั้งชื่อให้รู้ว่าเป็นของระบบนี้ | ห้ามใช้คีย์ใบเดียวกับระบบอื่น |
@@ -78,20 +78,21 @@
 
 ### ชื่อทรัพยากรที่แนะนำ (naming convention)
 
-| สภาพแวดล้อม | Supabase project | Vercel environment | โดเมน |
+| สภาพแวดล้อม | Neon project | Vercel environment | โดเมน |
 |---|---|---|---|
 | Development | `tnn-meeting-dev` | Development (เครื่องตัวเอง) | `localhost:3000` |
 | Staging | `tnn-meeting-staging` | Preview | `meeting-staging.example.com` |
 | Production | `tnn-meeting-prod` | Production | `meeting.example.com` |
 
-> **เริ่มต้นแบบประหยัด:** ถ้างบจำกัด ให้ทำ Development + Production ก่อน (2 โปรเจกต์ Supabase)
+> **เริ่มต้นแบบประหยัด:** ถ้างบจำกัด ให้ทำ Development + Production ก่อน (2 โปรเจกต์ Neon
+> หรือใช้ Neon branch แยกภายในโปรเจกต์เดียว ซึ่งแผนฟรีทำได้)
 > แล้วเพิ่ม Staging ทีหลังได้ โดยไม่ต้องแก้โค้ด
 
 ### Free tier และจุดที่จะเริ่มมีค่าใช้จ่าย
 
 | บริการ | Free tier ให้เท่าไร | จุดที่จะเริ่มเสียเงิน | สิ่งที่ควรตั้ง alert |
 |---|---|---|---|
-| Supabase | ฐานข้อมูล 500 MB, โปรเจกต์หยุดเองถ้าไม่มีใครใช้ 7 วัน | ต้องการ backup ย้อนเวลา (PITR) หรือข้อมูลเกิน 500 MB → Pro | ขนาดฐานข้อมูล, จำนวน connection |
+| Neon | พื้นที่เก็บข้อมูลจำกัด, ย้อนเวลาได้ประมาณ 1 วัน, ฐานข้อมูลหลับเองเมื่อไม่มีใครใช้ 5 นาที | ต้องการย้อนเวลาไกลกว่า 1 วัน หรือข้อมูลเกินโควตา → แผนที่สูงขึ้น | พื้นที่เก็บข้อมูล, ชั่วโมงประมวลผล |
 | Vercel | 100 GB bandwidth/เดือน | ใช้ในเชิงพาณิชย์ต้องใช้ Pro ตามเงื่อนไขของ Vercel | Bandwidth, จำนวน function invocation |
 | Resend | 3,000 ฉบับ/เดือน, 100 ฉบับ/วัน | ส่งเกินโควตา | จำนวนอีเมลที่ส่ง, อัตราตีกลับ (bounce) |
 | LINE Messaging API | ข้อความฟรีจำนวนจำกัดต่อเดือน | ส่งเกินโควตาของแพ็กเกจ | จำนวนข้อความที่ส่ง |
@@ -131,52 +132,75 @@
 
 ---
 
-## ส่วนที่ 2 — สร้างฐานข้อมูลบน Supabase
+## ส่วนที่ 2 — สร้างฐานข้อมูลบน Neon
+
+> **ทำไมเป็น Neon ไม่ใช่ Supabase** — ระบบนี้ใช้ฐานข้อมูลเป็น PostgreSQL ล้วน ๆ
+> ไม่ได้ใช้ระบบล็อกอิน ที่เก็บไฟล์ หรือ realtime ของ Supabase เลย (ล็อกอินเขียนเอง
+> ดู [ADR-003](architecture-decisions.md)) จึงย้ายที่ฝากฐานข้อมูลได้โดยไม่แก้โค้ด
+> เหตุผลที่เลือก Neon อยู่ใน [ADR-012](architecture-decisions.md)
+>
+> ถ้าวันหนึ่งต้องย้ายไปที่อื่นอีก ผู้ให้บริการนั้นต้องทำ 3 อย่างนี้ได้ ไม่อย่างนั้นระบบกันจองซ้อนจะพัง
+>
+> 1. เป็น **PostgreSQL แท้** (ไม่ใช่ตัวที่เข้ากันได้บางส่วน อย่าง CockroachDB หรือ PlanetScale)
+> 2. `CREATE EXTENSION btree_gist` และ `pgcrypto` ได้เอง
+> 3. มี **connection pooler โหมด transaction** สำหรับให้เว็บบน Vercel เรียกใช้
 
 ### 2.1 สร้างโปรเจกต์
 
-**ทำที่ไหน:** <https://supabase.com/dashboard>
+**ทำที่ไหน:** <https://console.neon.tech> (สมัครด้วยบัญชี GitHub เดิมได้)
 
-1. กด **New project**
+1. กด **New project** (หรือ **Create project**)
 2. กรอกตามนี้
 
 | ช่อง | ใส่ว่า | เหตุผล |
 |---|---|---|
-| Organization | เลือกองค์กรของคุณ | |
-| Name | `tnn-meeting-prod` | ให้รู้ทันทีว่าเป็นของระบบนี้และเป็น production |
-| Database Password | กด **Generate a password** แล้วกด **Copy** | **เก็บไว้ในที่ปลอดภัยทันที — Supabase จะไม่แสดงอีก** |
-| Region | **Southeast Asia (Singapore)** `ap-southeast-1` | ใกล้ผู้ใช้ในไทยที่สุด ทำให้เว็บเร็ว |
-| Pricing plan | Free เพื่อทดลอง / Pro เมื่อใช้งานจริง | Pro ให้ backup ย้อนเวลาได้ |
+| Project name | `tnn-meeting-prod` | ให้รู้ทันทีว่าเป็นของระบบนี้และเป็น production |
+| Postgres version | **17** (หรือ 16) | ระบบทดสอบบน 16 และใช้ได้ตั้งแต่ 14 ขึ้นไป |
+| Region | **Asia Pacific (Singapore)** `ap-southeast-1` | ใกล้ผู้ใช้ในไทยที่สุด และต้องอยู่ region เดียวกับ Vercel (`sin1`) |
 
-3. กด **Create new project** แล้วรอประมาณ 2 นาที
+3. กด **Create** แล้วรอประมาณ 10 วินาที
 
-**ถ้าสำเร็จจะเห็น:** หน้า Project overview และสถานะโปรเจกต์เป็นสีเขียว
+**ถ้าสำเร็จจะเห็น:** หน้า Project dashboard พร้อมกล่อง connection string
+Neon จะสร้างฐานข้อมูลชื่อ `neondb` และผู้ใช้ชื่อ `neondb_owner` ให้อัตโนมัติ
 
-**ถ้าพัง:** ถ้าค้างเกิน 5 นาที ให้ refresh หน้าเว็บ ถ้ายังไม่ขึ้นให้ลบโปรเจกต์แล้วสร้างใหม่
-โดยเลือก region เดิม
+**ถ้าพัง:** ถ้าเลือก region สิงคโปร์ไม่ได้ในแผนฟรี ให้เลือก region ที่ใกล้ที่สุดที่เลือกได้
+แล้วจดไว้ว่าเว็บจะช้าขึ้นเล็กน้อย (แต่ละ query เดินทางไกลขึ้น)
 
-### 2.2 เก็บค่าที่ต้องใช้
+### 2.2 เก็บ connection string สองเส้น
 
-**ทำที่ไหน:** Project Settings (ไอคอนเฟือง) → **Data API** และ **Database**
+**ทำที่ไหน:** หน้า Project dashboard → ปุ่ม **Connect** (หรือกล่อง Connection string)
 
-จดค่าเหล่านี้ใส่ที่เก็บความลับขององค์กร (password manager)
+ระบบนี้ต้องใช้ **สองเส้นที่ต่างกัน** และนี่คือจุดที่พลาดกันมากที่สุด
 
-| สิ่งที่ต้องเก็บ | หาได้ที่ | นำไปใส่ที่ตัวแปร | เปิดเผยต่อ browser ได้ไหม |
+| เส้น | หาอย่างไร | ใส่ที่ตัวแปร | ใช้ทำอะไร |
 |---|---|---|---|
-| Project URL | Settings → Data API | `NEXT_PUBLIC_SUPABASE_URL` (ยังไม่ใช้ในรุ่นนี้) | ได้ |
-| Connection string — **Transaction pooler** | Settings → Database → Connection string → เลือกแท็บ **Transaction pooler** | `DATABASE_URL` | **ไม่ได้ (ความลับ)** |
-| Connection string — **Session mode** | แท็บ **Session pooler** หรือ **Direct connection** | `DIRECT_URL` | **ไม่ได้ (ความลับ)** |
+| **แบบผ่าน pooler** | ในกล่อง Connect **เปิด** สวิตช์ `Connection pooling` → ชื่อ host จะมีคำว่า **`-pooler`** ต่อท้าย | `DATABASE_URL` | เว็บบน Vercel ใช้เส้นนี้ |
+| **แบบตรง** | **ปิด** สวิตช์นั้น → ชื่อ host จะ **ไม่มี** `-pooler` | `DIRECT_URL` | รัน migration จากเครื่องตัวเองเท่านั้น |
 
-> ⚠️ **จุดที่พลาดกันมากที่สุดในโปรเจกต์นี้**
->
-> - `DATABASE_URL` ที่เว็บใช้ **ต้องเป็นเส้น Transaction pooler พอร์ต 6543**
->   หน้าตาแบบนี้: `postgresql://postgres.xxxx:PASSWORD@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`
->   ถ้าใช้พอร์ต 5432 บน Vercel จะเปิด connection เต็มโควตาแล้วเว็บล่มตอนคนเข้าพร้อมกัน
-> - `DIRECT_URL` (พอร์ต 5432) ใช้เฉพาะรัน migration บนเครื่องตัวเอง **ห้ามใส่ใน Vercel**
->
-> ในทั้งสองเส้น ให้แทนคำว่า `[YOUR-PASSWORD]` ด้วยรหัสผ่านฐานข้อมูลที่คุณ copy ไว้ในขั้น 2.1
+หน้าตาของสองเส้น ต่างกันแค่คำว่า `-pooler` ในชื่อ host
 
-### 2.3 รัน migration และใส่ข้อมูลตั้งต้น
+```
+# DATABASE_URL — สังเกตคำว่า -pooler
+postgresql://neondb_owner:PASSWORD@ep-xxxx-xxxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+
+# DIRECT_URL — ไม่มี -pooler
+postgresql://neondb_owner:PASSWORD@ep-xxxx-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+```
+
+> ⚠️ **กฎเหล็กสองข้อ อ่านให้ครบก่อนไปต่อ**
+>
+> - `DATABASE_URL` ที่เว็บใช้ **ต้องเป็นเส้นที่มี `-pooler`**
+>   ถ้าใช้เส้นตรงบน Vercel จะเปิด connection เต็มโควตาแล้วเว็บล่มตอนคนเข้าพร้อมกัน
+>   (เส้น pooler รับได้หลักพัน connection เส้นตรงรับได้ไม่ถึงร้อย)
+> - `DIRECT_URL` **ห้ามใส่ใน Vercel เด็ดขาด** ใส่ไว้แค่ในไฟล์ `.env.local` บนเครื่องตัวเอง
+>
+> ทั้งสองเส้นมี `?sslmode=require` ติดมาให้แล้ว **อย่าลบออก** และให้ตั้ง `DATABASE_SSL=true` ด้วย
+
+**รหัสผ่านอยู่ในตัว connection string แล้ว** — copy ทั้งเส้นไปเก็บในที่เก็บความลับขององค์กร
+(password manager) ทันที ถ้าเผลอทำหาย กด **Reset password** ในหน้า Roles ของ Neon
+แล้วต้องแก้ค่าในทุกที่ที่ใช้ แล้ว Redeploy
+
+### 2.3 รัน migration และตรวจว่าครบ
 
 **ทำที่ไหน:** Terminal บนเครื่องของคุณ ในโฟลเดอร์โปรเจกต์
 
@@ -184,9 +208,9 @@
 # 1) เตรียมไฟล์ตั้งค่า
 cp .env.example .env.local
 
-# 2) เปิดไฟล์ .env.local แล้วเติมสองค่านี้ (ใส่ค่าจริงจากขั้น 2.2)
-#    DATABASE_URL=postgresql://postgres.xxxx:PASSWORD@...pooler.supabase.com:6543/postgres
-#    DIRECT_URL=postgresql://postgres.xxxx:PASSWORD@...pooler.supabase.com:5432/postgres
+# 2) เปิดไฟล์ .env.local แล้วเติมค่าเหล่านี้ (ใส่ค่าจริงจากขั้น 2.2)
+#    DATABASE_URL=<เส้นที่มี -pooler>
+#    DIRECT_URL=<เส้นที่ไม่มี -pooler>
 #    DATABASE_SSL=true
 #    AUTH_SECRET=<ผลลัพธ์ของคำสั่ง openssl rand -base64 48>
 
@@ -206,17 +230,35 @@ npm run db:migrate -- --status
 ✔ รัน migration สำเร็จ 7 ไฟล์
 ```
 
-**ตรวจอีกชั้นที่หน้าเว็บ Supabase:** Table Editor → ต้องเห็นตาราง `bookings`, `rooms`,
-`profiles`, `audit_logs` และอื่น ๆ
+**ไม่ต้องเปิด extension เองด้วยมือ** — ไฟล์ `001_foundation` สั่ง
+`CREATE EXTENSION IF NOT EXISTS pgcrypto` และ `btree_gist` ให้แล้ว และผู้ใช้
+`neondb_owner` ที่ Neon สร้างให้มีสิทธิ์ `neon_superuser` ซึ่งทำสิ่งนี้ได้
+
+**ตรวจอีกชั้นที่หน้าเว็บ Neon:** เปิด **SQL Editor** แล้วรัน
+
+```sql
+-- 1) extension ต้องมีสองตัวนี้
+select extname from pg_extension where extname in ('pgcrypto','btree_gist');
+-- ต้องได้ 2 แถว
+
+-- 2) ตัวกันจองซ้อนต้องอยู่ — นี่คือหัวใจของระบบ
+select conname from pg_constraint where conname = 'bookings_no_overlap';
+-- ต้องได้ 1 แถว
+
+-- 3) ตารางต้องเปิด RLS และ FORCE ครบ (ทุกแถวต้องเป็น t, t)
+select relname, relrowsecurity, relforcerowsecurity from pg_class
+where relname in ('bookings','profiles','audit_logs','rooms','user_roles','notification_jobs');
+```
 
 **ถ้าพัง**
 
 | ข้อความที่เห็น | สาเหตุ | วิธีแก้ |
 |---|---|---|
-| `connect ECONNREFUSED` | connection string ผิด หรือเน็ตบล็อกพอร์ต | copy connection string ใหม่จาก Dashboard ตรวจว่าแทนรหัสผ่านแล้ว |
-| `password authentication failed` | รหัสผ่านฐานข้อมูลผิด | Settings → Database → **Reset database password** แล้วแก้ทั้ง `DATABASE_URL` และ `DIRECT_URL` |
-| `self signed certificate` | ยังไม่ได้เปิด SSL | ตั้ง `DATABASE_SSL=true` ใน `.env.local` |
-| `permission denied for schema public` | ใช้ connection string ของบทบาทที่สิทธิ์น้อย | ใช้เส้นของผู้ใช้ `postgres` ตามที่ Dashboard ให้มา |
+| `connect ETIMEDOUT` หรือ `ECONNREFUSED` | connection string ผิด หรือฐานข้อมูลกำลังตื่นจากโหมดหลับ | ลองรันคำสั่งเดิมอีกครั้งหนึ่งรอบ ถ้ายังไม่ได้ให้ copy connection string ใหม่จาก Dashboard |
+| `password authentication failed` | copy connection string ไม่ครบ หรือรหัสผ่านถูก reset | copy ทั้งเส้นใหม่จากกล่อง Connect อย่าพิมพ์เอง |
+| `no pg_hba.conf entry ... no encryption` | ลบ `?sslmode=require` ออกไป | ใส่กลับเข้าไป และตั้ง `DATABASE_SSL=true` |
+| `permission denied to create extension` | ใช้ผู้ใช้ที่ไม่ใช่ `neondb_owner` | ใช้ connection string ที่ Dashboard ให้มาโดยไม่แก้ชื่อผู้ใช้ |
+| `prepared statement ... already exists` | เผลอใช้เส้น `-pooler` รัน migration | migration ต้องใช้ `DIRECT_URL` ที่เป็นเส้นตรง สคริปต์เลือกให้อัตโนมัติถ้าตั้งค่าไว้ |
 
 **ถ้าต้องย้อนกลับ:** `npm run db:rollback` (ย้อน 1 ขั้น) — ดูรายละเอียดใน
 [runbooks.md](runbooks.md#migration-runbook)
@@ -234,7 +276,7 @@ npm run db:seed
 
 1. เปิดเว็บที่ deploy แล้ว ไปหน้า **สร้างบัญชี** แล้วสมัครด้วยอีเมลองค์กรของผู้ดูแลระบบ
 2. ยืนยันอีเมลจากลิงก์ที่ได้รับ
-3. เปิด Supabase → **SQL Editor** → รันคำสั่งนี้ (แก้อีเมลเป็นของคุณ)
+3. เปิด Neon → **SQL Editor** → รันคำสั่งนี้ (แก้อีเมลเป็นของคุณ)
 
 ```sql
 -- ยกสิทธิ์ผู้ดูแลระบบสูงสุดให้บัญชีแรก
@@ -252,23 +294,57 @@ join user_roles ur on ur.profile_id = p.id;
 **ถ้าสำเร็จจะเห็น:** อีเมลของคุณคู่กับ `super_admin` และเมื่อ refresh หน้าเว็บจะเห็นเมนู
 "ผู้ดูแลระบบ" ในเมนูโปรไฟล์
 
-### 2.5 ตั้งค่า Backup
+**ทำข้อนี้ให้ครบสองคน** — เช็กลิสต์ก่อนเปิดใช้งานกำหนดว่าต้องมีผู้ดูแลระบบสูงสุด
+อย่างน้อย 2 คน กันกรณีคนเดียวลาออกหรือเข้าระบบไม่ได้
 
-**ทำที่ไหน:** Supabase → Settings → **Database** → หัวข้อ Backups
+### 2.5 Backup และการกู้คืน
 
-| แพ็กเกจ | สิ่งที่ได้ | สิ่งที่ต้องทำเพิ่ม |
+Neon ไม่ได้ทำ backup เป็นไฟล์แบบเดิม แต่เก็บ "ประวัติการเปลี่ยนแปลง" ไว้
+แล้วให้ย้อนเวลากลับไปจุดใดก็ได้ในช่วงที่เก็บไว้ (เรียกว่า instant restore หรือ PITR)
+
+**ทำที่ไหน:** หน้าโปรเจกต์ → **Branches** → เลือก branch `main` → เมนู **Restore**
+
+| แผน | ย้อนเวลาได้ไกลแค่ไหน | สิ่งที่ต้องทำเพิ่ม |
 |---|---|---|
-| Free | ไม่มี backup อัตโนมัติ | ตั้งเวลา export เองสัปดาห์ละครั้ง (ดู runbooks) |
-| Pro | Backup รายวัน ย้อนได้ 7 วัน | เปิด **Point in Time Recovery** ถ้าต้องการย้อนถึงระดับนาที |
+| Free | ประมาณ **1 วัน** | ถ้าต้องการเก็บนานกว่านั้น ต้อง export เองเป็นไฟล์สัปดาห์ละครั้ง (ดู runbooks) |
+| แผนที่สูงขึ้น | ตั้งได้ถึง **30 วัน** | ตั้งค่า restore window ให้ตรงกับที่องค์กรต้องการ |
+
+> **ข้อนี้ดีกว่า Supabase แผนฟรี** ซึ่งไม่มี backup อัตโนมัติให้เลย
+> แต่ระยะ 1 วันถือว่าสั้น — ถ้าพบข้อมูลเสียหายวันจันทร์ว่าเกิดตั้งแต่วันศุกร์ จะย้อนไม่ทัน
+> จึงยังต้องตั้งเวลา export เองถ้าข้อมูลการจองสำคัญต่อองค์กร
 
 **บันทึกไว้ในเอกสารขององค์กร**
 
-- RPO (ยอมเสียข้อมูลย้อนหลังได้กี่นาที): แนะนำไม่เกิน 24 ชั่วโมงสำหรับ Free, 5 นาทีสำหรับ Pro+PITR
+- RPO (ยอมเสียข้อมูลย้อนหลังได้กี่นาที): แผนฟรีทำได้ดีที่สุดคือระดับนาทีภายใน 1 วันที่ผ่านมา
 - RTO (ต้องกู้คืนเสร็จภายในกี่ชั่วโมง): แนะนำไม่เกิน 4 ชั่วโมง
 - ผู้รับผิดชอบการกู้คืน: ระบุชื่อและเบอร์ติดต่อ
 
-**ต้องทดสอบ restore จริงอย่างน้อยปีละครั้ง** ไม่ใช่แค่เปิดฟีเจอร์ไว้
+**ต้องทดสอบ restore จริงอย่างน้อยปีละครั้ง** ไม่ใช่แค่รู้ว่ามีฟีเจอร์
 ขั้นตอนอยู่ใน [runbooks.md](runbooks.md#backup-และ-restore-runbook)
+เช็กลิสต์ก่อนเปิดใช้งานถือข้อนี้เป็น **ข้อห้ามข้าม**
+
+### 2.6 เรื่องฐานข้อมูลหลับ — ต้องรู้ก่อนเปิดใช้งาน
+
+แผนฟรีของ Neon จะ **พักการทำงานของฐานข้อมูลเมื่อไม่มีใครใช้ประมาณ 5 นาที**
+(เรียกว่า scale to zero) และแผนฟรีปิดพฤติกรรมนี้ไม่ได้
+
+**ผลที่ผู้ใช้เห็น:** คนแรกที่เปิดเว็บตอนเช้าจะรอนานกว่าปกติประมาณ 1–3 วินาที
+คนถัดไปจะเร็วปกติ สำหรับระบบจองห้องประชุมภายในองค์กรถือว่ายอมรับได้
+
+**จุดที่ต้องตัดสินใจ** — เช็กลิสต์ก่อนเปิดใช้งานให้ตั้งระบบเฝ้าดูที่ยิงเข้า
+`/api/health` ทุก 5 นาที ซึ่งจะทำให้ฐานข้อมูล **ไม่หลับเลยตลอด 24 ชั่วโมง**
+ข้อดีคือไม่มีใครเจออาการรอ แต่ข้อเสียคือกินโควตาชั่วโมงประมวลผลของแผนฟรีเต็มที่
+
+เลือกอย่างหนึ่ง แล้วจดไว้ว่าเลือกอะไร
+
+| ทางเลือก | ผลที่ได้ |
+|---|---|
+| เฝ้าดูเฉพาะเวลาทำงาน (เช่น 07:00–19:00 วันจันทร์–ศุกร์) | ประหยัดโควตา และคนทำงานไม่เจออาการรอ — **แนะนำ** |
+| เฝ้าดูทุก 5 นาที 24 ชั่วโมง | ไม่มีใครเจออาการรอเลย แต่ต้องเทียบกับโควตาชั่วโมงประมวลผลของแผนที่ใช้ |
+| เฝ้าดูทุก 15–30 นาที | ประหยัดที่สุด แต่บางครั้งผู้ใช้จะเจออาการรอ |
+
+> เงื่อนไขของแผนฟรี (โควตาชั่วโมงประมวลผล พื้นที่เก็บข้อมูล ระยะย้อนเวลา)
+> **เปลี่ยนบ่อย** ให้เปิดหน้าราคาของ Neon เทียบกับการใช้งานจริงอีกครั้งก่อนตัดสินใจ
 
 ---
 
@@ -305,7 +381,7 @@ join user_roles ur on ur.profile_id = p.id;
 | `APP_TIMEZONE` | `Asia/Bangkok` | ทั้งหมด |
 | `NEXT_PUBLIC_APP_URL` | `https://meeting.example.com` | Production |
 | `NEXT_PUBLIC_APP_URL` | `https://meeting-staging.example.com` | Preview |
-| `DATABASE_URL` | เส้น **Transaction pooler พอร์ต 6543** | Production / Preview (คนละฐานข้อมูล) |
+| `DATABASE_URL` | เส้นที่ชื่อ host มี **`-pooler`** | Production / Preview (คนละฐานข้อมูล) |
 | `DATABASE_SSL` | `true` | ทั้งหมด |
 | `DATABASE_POOL_MAX` | `5` | ทั้งหมด |
 | `AUTH_SECRET` | ผลของ `openssl rand -base64 48` (คนละค่าต่อ environment) | ทั้งหมด |
@@ -324,7 +400,7 @@ join user_roles ur on ur.profile_id = p.id;
 | `LOG_LEVEL` | `info` | ทั้งหมด |
 | `RELEASE_VERSION` | `v1.0.0` (อัปเดตทุกครั้งที่ปล่อยเวอร์ชัน) | ทั้งหมด |
 
-> ❌ **ห้ามใส่ `DIRECT_URL` ใน Vercel** ตัวแปรนี้เป็นเส้นพอร์ต 5432
+> ❌ **ห้ามใส่ `DIRECT_URL` ใน Vercel** ตัวแปรนี้เป็นเส้นตรงที่ไม่ผ่าน pooler
 > ใช้เฉพาะรัน migration จากเครื่องตัวเอง ถ้าใส่ใน Vercel เสี่ยงมีโค้ดเผลอใช้แล้ว connection เต็ม
 >
 > 📌 **ทุกครั้งที่แก้ Environment variable ต้องกด Redeploy** ค่าใหม่จะไม่มีผลกับ deployment เดิม
@@ -668,14 +744,14 @@ curl -s https://meeting.example.com/api/health
 
 ### 8.1 บัญชีและสิทธิ์
 
-- เปิด **MFA** ทุกบัญชี Owner: GitHub, Supabase, Vercel, Resend, LINE, Registrar
+- เปิด **MFA** ทุกบัญชี Owner: GitHub, Neon, Vercel, Resend, LINE, Registrar
 - ใช้บัญชีองค์กรเป็นเจ้าของ production **ห้ามให้บัญชีส่วนตัวของพนักงานคนเดียวเป็นเจ้าของ**
 - ให้สิทธิ์เท่าที่จำเป็น (least privilege) และบันทึกรายชื่อผู้มีสิทธิ์ไว้
 
 | บริการ | Owner | Admin | Developer | Viewer |
 |---|---|---|---|---|
 | GitHub | (กรอก) | (กรอก) | (กรอก) | (กรอก) |
-| Supabase | (กรอก) | (กรอก) | — | (กรอก) |
+| Neon | (กรอก) | (กรอก) | — | (กรอก) |
 | Vercel | (กรอก) | (กรอก) | (กรอก) | (กรอก) |
 | Resend | (กรอก) | (กรอก) | — | — |
 | LINE | (กรอก) | (กรอก) | — | — |
@@ -690,7 +766,7 @@ curl -s https://meeting.example.com/api/health
 | คีย์ | วิธีเปลี่ยน | ผลกระทบตอนเปลี่ยน |
 |---|---|---|
 | `AUTH_SECRET` | สร้างค่าใหม่ → ใส่ใน Vercel → Redeploy | ผู้ใช้ทุกคนต้องล็อกอินใหม่ |
-| รหัสผ่านฐานข้อมูล | Supabase → Settings → Database → Reset | ต้องแก้ `DATABASE_URL` ทุก environment แล้ว Redeploy |
+| รหัสผ่านฐานข้อมูล | Neon → Roles → `neondb_owner` → Reset password | ต้องแก้ `DATABASE_URL` ทุก environment แล้ว Redeploy |
 | `EMAIL_API_KEY` | สร้างใบใหม่ → ใส่ค่าใหม่ → Redeploy → ลบใบเก่า | ไม่มีผลถ้าทำตามลำดับนี้ |
 | `LINE_CHANNEL_ACCESS_TOKEN` | ออก token ใหม่ → ใส่ → Redeploy | ข้อความที่ค้างในคิวจะส่งได้หลัง Redeploy |
 | `CRON_SECRET` | สร้างค่าใหม่ → ใส่ → Redeploy | Cron ของ Vercel ใช้ค่าใหม่อัตโนมัติ |
@@ -744,8 +820,8 @@ curl -s https://meeting.example.com/api/health
 | อีเมลตีกลับ | หน้า **สถานะระบบ** + Resend | อัตราตีกลับเกิน 2% |
 | การล็อกอินล้มเหลวผิดปกติ | ตาราง `login_attempts` / audit log | เกิน 50 ครั้ง/ชั่วโมงจากอีเมลเดียว |
 | โดเมนใกล้หมดอายุ | Registrar | 60 วันก่อนหมดอายุ |
-| ขนาดฐานข้อมูล | Supabase | เกิน 70% ของโควตา |
-| ค่าใช้จ่าย | Vercel / Supabase Billing | เกินงบที่ตั้งไว้ |
+| ขนาดฐานข้อมูล | Neon | เกิน 70% ของโควตา |
+| ค่าใช้จ่าย | Vercel / Neon Billing | เกินงบที่ตั้งไว้ |
 
 ### 9.3 Log และการปกปิดข้อมูล
 

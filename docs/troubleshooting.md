@@ -47,17 +47,17 @@ npm run db:seed
 
 ### `password authentication failed for user ...`
 
-รหัสผ่านในconnection string ผิด — copy ใหม่จาก Supabase Dashboard
+รหัสผ่านใน connection string ผิด — copy ทั้งเส้นใหม่จากกล่อง Connect ของ Neon (อย่าพิมพ์เอง)
 (Settings → Database) และอย่าลืมแทนคำว่า `[YOUR-PASSWORD]` ด้วยรหัสจริง
 
 ### `self signed certificate` หรือ `SSL required`
 
-ตั้ง `DATABASE_SSL=true` ใน `.env.local` (จำเป็นเมื่อต่อ Supabase)
+ตั้ง `DATABASE_SSL=true` ใน `.env.local` และอย่าลบ `?sslmode=require` ออกจาก connection string (จำเป็นเมื่อต่อ Neon)
 
 ### `permission denied for schema public`
 
 ใช้ connection string ของบทบาทที่สิทธิ์ไม่พอ — ใช้เส้นของผู้ใช้ `postgres`
-ตามที่ Supabase Dashboard ให้มา
+ตามที่ Neon Console ให้มา (ผู้ใช้ `neondb_owner`)
 
 ### เทสต์ integration ขึ้นว่า "ชื่อฐานข้อมูลของเทสต์ต้องมีคำว่า test"
 
@@ -253,25 +253,25 @@ cookie ไม่ถูกเก็บ
 
 ### เว็บช้าหรือ timeout ตอนคนเข้าพร้อมกัน
 
-**สาเหตุอันดับหนึ่งของโปรเจกต์นี้:** `DATABASE_URL` ใช้พอร์ต **5432** แทน 6543
+**สาเหตุอันดับหนึ่งของโปรเจกต์นี้:** `DATABASE_URL` ใช้เส้นตรง แทนเส้นที่มี `-pooler`
 
 ```
 # ผิด — Session mode ทำให้ connection เต็มบน serverless
-postgresql://postgres.xxx:pw@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
+postgresql://neondb_owner:pw@ep-xxxx-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
 
 # ถูก — Transaction pooler
-postgresql://postgres.xxx:pw@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres
+postgresql://neondb_owner:pw@ep-xxxx-xxxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
 ```
 
 แก้แล้ว **Redeploy** ทันที และตรวจว่า `DATABASE_POOL_MAX` ไม่เกิน 5
 
-ตรวจจำนวน connection ได้ที่ Supabase → Reports → Database
+ตรวจจำนวน connection ได้ที่ Neon → Monitoring
 
 ### `/api/health` ตอบ 503 `database: down`
 
-1. Supabase Dashboard → สถานะโปรเจกต์เป็นสีเขียวไหม
+1. Neon Console → สถานะโปรเจกต์และ branch `main` ปกติไหม
 2. โปรเจกต์ Free tier ถูกพักเพราะไม่มีใครใช้เกิน 7 วันหรือไม่ → กด Restore project
-3. <https://status.supabase.com> มีเหตุขัดข้องหรือไม่
+3. <https://neonstatus.com> มีเหตุขัดข้องหรือไม่
 4. รหัสผ่านฐานข้อมูลถูกเปลี่ยนหรือไม่
 
 ### ปฏิทินโหลดช้าเมื่อเลือก "ทุกห้อง"
@@ -361,7 +361,7 @@ where lower(p.email) = lower('user@example.com');
 | สถานะบริการภายนอก | ลิงก์ |
 |---|---|
 | Vercel | <https://vercel-status.com> |
-| Supabase | <https://status.supabase.com> |
+| Neon | <https://neonstatus.com> |
 | Resend | <https://resend-status.com> |
 | LINE | <https://developers.line.biz> (ประกาศในหน้า Console) |
 

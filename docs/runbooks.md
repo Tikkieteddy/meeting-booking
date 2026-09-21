@@ -89,7 +89,7 @@ npm run db:migrate -- --status
 
 # 2) backup ก่อน (ดู Backup Runbook)
 
-# 3) รัน migration โดยใช้ DIRECT_URL (พอร์ต 5432)
+# 3) รัน migration โดยใช้ DIRECT_URL (เส้นตรง ไม่ผ่าน pooler)
 #    ตั้งค่าใน .env.local ให้ DIRECT_URL ชี้ไปฐานข้อมูลที่ต้องการ
 npm run db:migrate
 
@@ -128,15 +128,17 @@ npm run db:rollback -- 3   # ย้อน 3 ขั้น
 
 ## Backup และ Restore Runbook
 
-### Backup รายวัน (Supabase Pro ขึ้นไป)
+### ย้อนเวลากลับ (instant restore ของ Neon)
 
-ทำอัตโนมัติ ตรวจสถานะได้ที่ Supabase → Settings → Database → Backups
+Neon เก็บประวัติการเปลี่ยนแปลงให้อัตโนมัติ ไม่ต้องตั้งอะไร
+ย้อนเวลาได้ที่ Neon → **Branches** → เลือก `main` → **Restore**
+แผนฟรีย้อนได้ประมาณ 1 วัน แผนที่สูงขึ้นตั้งได้ถึง 30 วัน
 
 ### Backup ด้วยมือ (จำเป็นสำหรับ Free tier และก่อนทำ migration)
 
 ```bash
 STAMP=$(date +%F-%H%M)
-# ใช้ DIRECT_URL (พอร์ต 5432) เพราะ pg_dump ต้องใช้ session mode
+# ใช้ DIRECT_URL (เส้นตรง) เพราะ pg_dump ต้องต่อแบบ session ไม่ผ่าน pooler
 pg_dump "$DIRECT_URL" --no-owner --no-privileges -Fc -f backup-$STAMP.dump
 
 # ตรวจว่าไฟล์ใช้ได้จริง (ห้ามเชื่อแค่ขนาดไฟล์)
@@ -255,14 +257,14 @@ echo | openssl s_client -connect meeting.example.com:443 2>/dev/null | openssl x
 
 ### ตรวจตามลำดับ
 
-1. Supabase Dashboard → สถานะโปรเจกต์เป็นสีเขียวไหม
-2. <https://status.supabase.com> มีเหตุขัดข้องไหม
-3. Supabase → Reports → **Database** → ดูจำนวน connection
+1. Neon Console → สถานะโปรเจกต์และ branch `main` ปกติไหม
+2. <https://neonstatus.com> มีเหตุขัดข้องไหม
+3. Neon → **Monitoring** → ดูจำนวน connection และการใช้ CPU
 
 | สาเหตุ | อาการเฉพาะ | วิธีแก้ |
 |---|---|---|
-| Connection เต็ม | ล่มตอนคนเข้าพร้อมกัน error `too many connections` | ★ ตรวจว่า `DATABASE_URL` เป็น **พอร์ต 6543** ถ้าเป็น 5432 ให้แก้แล้ว Redeploy ทันที และลด `DATABASE_POOL_MAX` |
-| โปรเจกต์ Free tier ถูกพัก | ไม่มีใครใช้เกิน 7 วัน | Supabase → กด **Restore project** และวางแผนขึ้น Pro |
+| Connection เต็ม | ล่มตอนคนเข้าพร้อมกัน error `too many connections` | ★ ตรวจว่า `DATABASE_URL` เป็นเส้นที่ชื่อ host มี **`-pooler`** ถ้าไม่มีให้แก้แล้ว Redeploy ทันที และลด `DATABASE_POOL_MAX` |
+| คำขอแรกช้ากว่าปกติ 1–3 วินาที | ฐานข้อมูลหลับเองเมื่อไม่มีใครใช้ 5 นาที (scale to zero ของแผนฟรี) | ไม่ใช่ความผิดปกติ ถ้าไม่ต้องการให้เกิด ให้ยิง `/api/health` ถี่ขึ้น แต่จะกินโควตาชั่วโมงประมวลผล — ดู [infrastructure-setup.md](infrastructure-setup.md) ข้อ 2.6 |
 | ดิสก์เต็ม | error `no space left` | ลบข้อมูล log เก่า (ปรับ `audit.retention_days`) หรือขยายแพ็กเกจ |
 | รหัสผ่านถูกเปลี่ยน | `password authentication failed` | แก้ `DATABASE_URL` ทุก environment แล้ว Redeploy |
 
@@ -370,7 +372,7 @@ alter table bookings add constraint bookings_no_overlap
 1. **เพิกถอนคีย์เก่าทันที** (ไม่ต้องรอสร้างใหม่ก่อน)
    - Resend: ลบ API key ที่หน้า API Keys
    - LINE: กด Revoke ที่ Channel access token
-   - ฐานข้อมูล: Supabase → Settings → Database → Reset database password
+   - ฐานข้อมูล: Neon → **Roles** → `neondb_owner` → Reset password
 2. สร้างคีย์ใหม่ → ใส่ใน Vercel → **Redeploy**
 3. ถ้า `AUTH_SECRET` รั่ว: เปลี่ยนค่าแล้ว Redeploy (ผู้ใช้ทุกคนต้องล็อกอินใหม่ ซึ่งเป็นผลที่ต้องการ)
 4. ตรวจร่องรอยการใช้งานผิดปกติ

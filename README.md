@@ -13,7 +13,7 @@
 | เอกสาร | ใช้เมื่อไร |
 |---|---|
 | ไฟล์นี้ | ติดตั้งบนเครื่องตัวเอง โครงสร้างโค้ด คำสั่งที่ใช้บ่อย |
-| [docs/infrastructure-setup.md](docs/infrastructure-setup.md) | ตั้งค่า Supabase, Vercel, Resend, LINE, DNS ทีละขั้นตั้งแต่ยังไม่มีบัญชี |
+| [docs/infrastructure-setup.md](docs/infrastructure-setup.md) | ตั้งค่า Neon, Vercel, Resend, LINE, DNS ทีละขั้นตั้งแต่ยังไม่มีบัญชี |
 | [docs/env-matrix.md](docs/env-matrix.md) | ตัวแปร environment ตัวไหนใส่ที่ไหน |
 | [docs/dns-sheet.md](docs/dns-sheet.md) | ตาราง DNS ที่ต้องกรอก พร้อมวิธีตรวจสอบ |
 | [docs/runbooks.md](docs/runbooks.md) | ขั้นตอน deploy, migration, backup, restore, rollback และเหตุการณ์ฉุกเฉิน |
@@ -35,7 +35,7 @@
 |---|---|---|
 | Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4 | ยกมาจากโปรเจกต์เดิมที่ขึ้น production แล้ว ทีมคุ้นเคย |
 | Backend | Route Handlers + Service layer แยกชั้น | ตรวจ auth, permission, validation และ conflict ฝั่ง server เสมอ |
-| Database | PostgreSQL (Supabase) + Row Level Security | กันจองซ้อนและกันสิทธิ์ที่ชั้นฐานข้อมูล ไม่ใช่แค่ซ่อนปุ่ม |
+| Database | PostgreSQL (Neon) + Row Level Security | กันจองซ้อนและกันสิทธิ์ที่ชั้นฐานข้อมูล ไม่ใช่แค่ซ่อนปุ่ม |
 | Deploy | Vercel region `sin1` (สิงคโปร์) | ใกล้ผู้ใช้ในไทยที่สุดที่ Vercel รองรับ |
 | Email | Resend (สลับเป็นโหมด log ได้) | ใช้อยู่แล้วในโปรเจกต์เดิม |
 | LINE | LINE Messaging API | ตามบรีฟ — ไม่ใช้ LINE Notify ที่ปิดบริการแล้ว |
@@ -52,7 +52,7 @@
 ### สิ่งที่ต้องมีก่อน
 
 - Node.js 20.9 ขึ้นไป (`node -v` เพื่อตรวจ)
-- PostgreSQL 14 ขึ้นไป บนเครื่อง **หรือ** โปรเจกต์ Supabase สำหรับพัฒนา
+- PostgreSQL 14 ขึ้นไป บนเครื่อง **หรือ** โปรเจกต์ Neon สำหรับพัฒนา
 
 ### ขั้นตอน
 
@@ -195,14 +195,14 @@ UI ซ่อนเมนู → API ตรวจ `requirePermission()` → ฐ�
 1. Import repository เข้า Vercel เลือก region `sin1`
 2. ใส่ Environment variables ตาม [docs/env-matrix.md](docs/env-matrix.md)
    (**ห้ามใส่ `DIRECT_URL` ใน Vercel**)
-3. รัน migration จากเครื่องตัวเองโดยชี้ `DIRECT_URL` ไปที่ Supabase
+3. รัน migration จากเครื่องตัวเองโดยชี้ `DIRECT_URL` ไปที่ Neon
 4. เพิ่ม Custom domain และรอ SSL
 5. ตรวจ `/api/health` แล้วทำ smoke test ตาม [docs/production-readiness.md](docs/production-readiness.md)
 
 > ⚠️ **ข้อผิดพลาดที่ทำให้เว็บล่มบ่อยที่สุด**
-> `DATABASE_URL` ที่เว็บใช้ต้องเป็นเส้น **Transaction pooler พอร์ต 6543**
-> ถ้าใช้พอร์ต 5432 บน Vercel จะเปิด connection เต็มโควตาแล้วเว็บล่มตอนคนเข้าพร้อมกัน
-> ส่วน `DIRECT_URL` (พอร์ต 5432) ใช้เฉพาะรัน migration บนเครื่องตัวเอง
+> `DATABASE_URL` ที่เว็บใช้ต้องเป็นเส้นที่ชื่อ host มี **`-pooler`**
+> ถ้าใช้เส้นตรงบน Vercel จะเปิด connection เต็มโควตาแล้วเว็บล่มตอนคนเข้าพร้อมกัน
+> ส่วน `DIRECT_URL` (เส้นที่ไม่มี `-pooler`) ใช้เฉพาะรัน migration บนเครื่องตัวเอง
 
 ---
 

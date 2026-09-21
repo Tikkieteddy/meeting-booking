@@ -24,16 +24,18 @@
 
 | ตัวแปร | บังคับ | ขอบเขต | Local | Preview | Production | หมายเหตุ |
 |---|---|---|---|---|---|---|
-| `DATABASE_URL` | ✅ | Server (**ความลับ**) | เส้น PostgreSQL บนเครื่อง | เส้น pooler ของ Supabase staging | เส้น pooler ของ Supabase prod | ★ **ต้องเป็น Transaction pooler พอร์ต 6543** |
-| `DIRECT_URL` | – | Server (**ความลับ**) | เหมือน `DATABASE_URL` | – | – | ★ **ห้ามใส่ใน Vercel** ใช้เฉพาะรัน migration บนเครื่อง (พอร์ต 5432) |
-| `DATABASE_SSL` | – | Server | `false` | `true` | `true` | Supabase ต้องเป็น `true` |
+| `DATABASE_URL` | ✅ | Server (**ความลับ**) | เส้น PostgreSQL บนเครื่อง | เส้น pooler ของ Neon staging | เส้น pooler ของ Neon prod | ★ **ชื่อ host ต้องมี `-pooler`** |
+| `DIRECT_URL` | – | Server (**ความลับ**) | เหมือน `DATABASE_URL` | – | – | ★ **ห้ามใส่ใน Vercel** ใช้เฉพาะรัน migration บนเครื่อง (เส้นที่ไม่มี `-pooler`) |
+| `DATABASE_SSL` | – | Server | `false` | `true` | `true` | Neon ต้องเป็น `true` |
 | `DATABASE_POOL_MAX` | – | Server | `5` | `5` | `5` | บน serverless ไม่ควรเกิน 5 ต่อ instance |
 | `TEST_DATABASE_URL` | – | Server (**ความลับ**) | ฐานข้อมูลที่ชื่อมีคำว่า `test` | – | – | ใช้เฉพาะเทสต์ integration ระบบจะปฏิเสธถ้าชื่อไม่มีคำว่า test |
 
 > **ทำไมต้องแยกสองเส้น**
-> พอร์ต 6543 เป็น *Transaction pooler* — เหมาะกับ serverless ที่เปิด-ปิด connection ถี่
-> พอร์ต 5432 เป็น *Session mode* — รองรับคำสั่ง DDL ของ migration ได้ครบ
-> ถ้าเอาเส้น 5432 ไปใช้บน Vercel จะเปิด connection ค้างจนเต็มโควตาแล้วเว็บล่มตอนคนเข้าพร้อมกัน
+> เส้นที่ชื่อ host มี `-pooler` วิ่งผ่าน PgBouncer โหมด *transaction* — เหมาะกับ serverless
+> ที่เปิด-ปิด connection ถี่ และรับได้หลักพัน connection
+> เส้นที่ไม่มี `-pooler` ต่อตรงเข้าฐานข้อมูล รองรับคำสั่ง DDL ของ migration ได้ครบ
+> แต่รับ connection ได้ไม่ถึงร้อย
+> ถ้าเอาเส้นตรงไปใช้บน Vercel จะเปิด connection ค้างจนเต็มโควตาแล้วเว็บล่มตอนคนเข้าพร้อมกัน
 
 ## กลุ่มยืนยันตัวตน
 
@@ -74,7 +76,7 @@
 
 ## เช็กลิสต์ก่อนขึ้น production
 
-- [ ] `DATABASE_URL` เป็นพอร์ต **6543**
+- [ ] `DATABASE_URL` เป็นเส้นที่ชื่อ host มี **`-pooler`**
 - [ ] **ไม่มี** `DIRECT_URL` ใน Vercel
 - [ ] `AUTH_SECRET` เป็นค่าสุ่มคนละค่ากับ staging
 - [ ] `APP_ENV=production` และ `NEXT_PUBLIC_APP_URL` เป็นโดเมนจริง
