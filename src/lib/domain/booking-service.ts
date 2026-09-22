@@ -304,6 +304,16 @@ async function notifyBookingEvent(
       link: bookingLink(booking.id),
       bookingId: booking.id,
     });
+    // คนในองค์กรที่ผูก LINE ไว้ ได้รับทาง LINE ด้วย — worker ตรวจเองว่าผูกแล้วและเปิดรับหรือไม่
+    // ถ้ายังไม่ผูกจะข้ามเงียบ ๆ (ไม่ใช่ error) อีเมลยังส่งตามปกติจากลูปด้านบน
+    await enqueueNotification(sql, {
+      eventType: event,
+      channel: 'line',
+      bookingId: booking.id,
+      recipientProfileId: profileId,
+      payload: attendeePayload,
+      correlationId: actor.correlationId ?? null,
+    });
   }
 
   // ผู้อนุมัติ
@@ -324,6 +334,33 @@ async function notifyBookingEvent(
       link: '/approvals',
       bookingId: booking.id,
     });
+  }
+}
+
+/**
+ * ตั้งเตือนก่อนประชุมให้ผู้จองและผู้เข้าร่วมที่เป็นคนในองค์กรทุกคน
+ * แต่ละคนได้ตามค่าที่ตัวเองตั้ง (อีเมล/LINE/เวลาเตือน) ไม่ใช่ตามของผู้จอง
+ */
+/** profile id ของผู้เข้าร่วมที่เป็นคนในองค์กรของการจองนี้ (ตามที่บันทึกไว้) */
+async function internalAttendeeIds(sql: Sql, bookingId: string): Promise<string[]> {
+  const res = await sql.query<{ profile_id: string }>(
+    'SELECT profile_id FROM booking_attendees WHERE booking_id = $1 AND profile_id IS NOT NULL',
+    [bookingId],
+  );
+  return res.rows.map((r) => r.profile_id);
+}
+
+async function scheduleRemindersForAll(
+  sql: Sql,
+  bookingId: string,
+  profileIds: (string | null | undefined)[],
+  booking: { title: string; startsAt: Date; endsAt: Date; roomName: string; roomMapLink?: string | null },
+) {
+  const seen = new Set<string>();
+  for (const id of profileIds) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    await scheduleReminders(sql, bookingId, id, booking);
   }
 }
 
@@ -499,7 +536,14 @@ export async function createBooking(
       },
     );
     if (status === 'confirmed') {
-      await scheduleReminders(sql, bookingId, actor.profileId, { title: input.title, startsAt, endsAt, roomName: room.name });
+      // ผู้จอง + ผู้เข้าร่วมคนใน ได้เตือนก่อนประชุมตามค่าที่แต่ละคนตั้งไว้
+      await scheduleRemindersForAll(sql, bookingId, [actor.profileId, ...attendeeProfileIds], {
+        title: input.title,
+        startsAt,
+        endsAt,
+        roomName: room.name,
+        roomMapLink: room.mapLink,
+      });
     }
 
     await writeAudit(sql, {
@@ -791,11 +835,12 @@ export async function updateBooking(
     if (timeChanged) {
       // เวลาเปลี่ยน -> ยกเลิก reminder เดิมแล้วตั้งใหม่
       await cancelPendingJobs(sql, bookingId, ['booking.reminder']);
-      await scheduleReminders(sql, bookingId, before.bookerProfileId, {
+      await scheduleRemindersForAll(sql, bookingId, [before.bookerProfileId, ...(await internalAttendeeIds(sql, bookingId))], {
         title: input.title ?? before.title,
         startsAt,
         endsAt,
         roomName: room.name,
+        roomMapLink: room.mapLink,
       });
     }
 
@@ -997,11 +1042,12 @@ export async function decideApproval(
         }
         throw error;
       }
-      await scheduleReminders(sql, bookingId, booking.bookerProfileId, {
+      await scheduleRemindersForAll(sql, bookingId, [booking.bookerProfileId, ...(await internalAttendeeIds(sql, bookingId))], {
         title: booking.title,
         startsAt: booking.startsAt,
         endsAt: booking.endsAt,
         roomName: room.name,
+        roomMapLink: room.mapLink,
       });
     } else if (decision === 'rejected') {
       await sql.query(`UPDATE bookings SET status = 'rejected', version = version + 1 WHERE id = $1`, [bookingId]);

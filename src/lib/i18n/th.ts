@@ -74,6 +74,7 @@ export const th = {
   'calendar.slotBusy': 'ช่วงเวลานี้มีการจองแล้ว',
   'calendar.clickToBook': 'แตะช่วงเวลาว่างเพื่อจอง',
   'calendar.bookingCountOne': 'มี {count} รายการ',
+  'calendar.busyDay': 'ไม่ว่าง',
   'calendar.occupancyFree': 'ว่าง',
   'calendar.occupancyPartial': 'มีจองบางช่วง',
   'calendar.occupancyAlmost': 'ใกล้เต็ม',

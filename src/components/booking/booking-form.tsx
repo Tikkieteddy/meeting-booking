@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { MapLink } from '@/components/ui/map-link';
+import { AttendeePicker, type AttendeeChip } from './attendee-picker';
 import type { Room, Amenity } from '@/lib/domain/rooms';
 import { Button, Checkbox, Field, Input, Select, Textarea, cx } from '@/components/ui/primitives';
 import { Overlay } from '@/components/ui/overlay';
@@ -39,7 +40,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
   const [purpose, setPurpose] = useState('');
   const [notes, setNotes] = useState('');
   const [attendeeCount, setAttendeeCount] = useState(1);
-  const [attendeeEmails, setAttendeeEmails] = useState('');
+  const [attendees, setAttendees] = useState<AttendeeChip[]>([]);
   const [privacy, setPrivacy] = useState<'public' | 'busy_only' | 'private'>('public');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [recurrenceOn, setRecurrenceOn] = useState(false);
@@ -47,7 +48,8 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
   const [untilDate, setUntilDate] = useState('');
   const [occurrenceCount, setOccurrenceCount] = useState(4);
   const [overrideReason, setOverrideReason] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
+  // เวลาสิ้นสุดที่ผู้ใช้เลือกเอง — null = ใช้ค่าเริ่มต้น (เริ่ม + ระยะขั้นต่ำของห้อง)
+  const [chosenEndTime, setChosenEndTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -55,20 +57,23 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
 
   const room = rooms.find((r) => r.id === roomId) ?? rooms[0];
   const slots = useMemo(() => (room ? timeSlots(room.policy) : []), [room]);
-  const effectiveDuration = durationMinutes ?? room?.policy.minDurationMinutes ?? 30;
-  const endTime = useMemo(
-    () => minutesToHhmm(hhmmToMinutes(startTime) + effectiveDuration),
-    [startTime, effectiveDuration],
-  );
 
-  const durationOptions = useMemo(() => {
-    if (!room) return [30];
-    const out: number[] = [];
-    for (let m = room.policy.minDurationMinutes; m <= room.policy.maxDurationMinutes; m += room.policy.slotStepMinutes) {
-      out.push(m);
+  /*
+   * ตัวเลือก "เวลาสิ้นสุด": ทุกช่วงหลังเวลาเริ่ม ที่ยาวอย่างน้อยเท่าขั้นต่ำของห้อง
+   * ไม่เกินสูงสุดของห้อง และไม่เลยเวลาปิด — ผู้ใช้เห็นเวลาจริง ไม่ต้องคิดเลขระยะเวลาเอง
+   */
+  const endOptions = useMemo(() => {
+    if (!room) return [] as string[];
+    const start = hhmmToMinutes(startTime);
+    const close = hhmmToMinutes(room.policy.closeTime);
+    const out: string[] = [];
+    for (let m = start + room.policy.minDurationMinutes; m <= close && m - start <= room.policy.maxDurationMinutes; m += room.policy.slotStepMinutes) {
+      out.push(minutesToHhmm(m));
     }
     return out;
-  }, [room]);
+  }, [room, startTime]);
+  const endTime = chosenEndTime && endOptions.includes(chosenEndTime) ? chosenEndTime : (endOptions[0] ?? startTime);
+  const effectiveDuration = Math.max(0, hhmmToMinutes(endTime) - hhmmToMinutes(startTime));
 
   const submit = async () => {
     if (!room) return;
@@ -85,11 +90,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         startTime,
         endTime,
         attendeeCount,
-        attendees: attendeeEmails
-          .split(/[,\s;]+/)
-          .map((email) => email.trim())
-          .filter(Boolean)
-          .map((email) => ({ email })),
+        attendees: attendees.map((a) => ({ email: a.email, displayName: a.displayName, profileId: a.profileId })),
         resources: selectedAmenities.map((amenityCode) => ({ amenityCode })),
         privacy,
         idempotencyKey,
@@ -205,18 +206,16 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
             </Select>
           </Field>
           <Field
-            label={`${t('search.duration')} (${t('booking.endTime')} ${endTime})`}
-            htmlFor="bk-duration"
+            label={t('booking.endTime')}
+            htmlFor="bk-end"
+            required
             error={fieldErrors.endsAt ?? fieldErrors.endTime}
+            hint={t('booking.endTimeHint', { duration: durationLabel(new Date(0), new Date(effectiveDuration * 60_000)) })}
           >
-            <Select
-              id="bk-duration"
-              value={String(effectiveDuration)}
-              onChange={(event) => setDurationMinutes(Number(event.target.value))}
-            >
-              {durationOptions.map((minutes) => (
-                <option key={minutes} value={minutes}>
-                  {minutes % 60 === 0 ? `${minutes / 60} ชม.` : `${minutes} นาที`}
+            <Select id="bk-end" value={endTime} onChange={(event) => setChosenEndTime(event.target.value)}>
+              {endOptions.map((slot) => (
+                <option key={slot} value={slot}>
+                  {slot}
                 </option>
               ))}
             </Select>
@@ -250,14 +249,8 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
           </Field>
         </div>
 
-        <Field label={t('booking.attendees')} htmlFor="bk-attendees" error={fieldErrors.attendees}>
-          <Textarea
-            id="bk-attendees"
-            value={attendeeEmails}
-            onChange={(event) => setAttendeeEmails(event.target.value)}
-            placeholder={t('booking.attendeeEmailPlaceholder')}
-            className="min-h-16"
-          />
+        <Field label={t('booking.attendees')} htmlFor="bk-attendees">
+          <AttendeePicker id="bk-attendees" value={attendees} onChange={setAttendees} error={fieldErrors.attendees} />
         </Field>
 
         <fieldset className="flex flex-col gap-2">

@@ -394,7 +394,7 @@ COMMIT;
 
 **ทาง ก — วางคำสั่งในหน้าเว็บ Neon (ไม่ต้องใช้ terminal)**
 
-1. เปิดไฟล์ `db/upgrades/upgrade-<หมายเลข>.sql` ใน GitHub (เช่น `upgrade-008.sql`)
+1. เปิดไฟล์ `db/upgrades/upgrade-<หมายเลข>.sql` ใน GitHub (เช่น `upgrade-008.sql`, `upgrade-009.sql`)
    กดปุ่ม **Raw** แล้วคัดลอกทั้งหมด
 2. เปิด Neon → **SQL Editor** → วาง → กด **Run**
 3. ดูผลแท็บสุดท้าย
