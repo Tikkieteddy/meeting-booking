@@ -4,7 +4,7 @@ import type { CalendarBooking, MonthDaySummary } from '@/lib/domain/calendar-sha
 import { OCCUPANCY_META } from '@/lib/domain/booking-rules';
 import { cx } from '@/components/ui/primitives';
 import { t } from '@/lib/i18n';
-import { thaiWeekday, toDateISO } from '@/lib/util/time';
+import { formatTimeRange, thaiWeekday, toDateISO } from '@/lib/util/time';
 import { TZ } from './shared';
 
 /**
@@ -29,8 +29,22 @@ export function MonthView({
   const todayISO = toDateISO(new Date(), TZ);
   const weekdayHeader = [1, 2, 3, 4, 5, 6, 0];
 
-  const firstBookingTitle = (dateISO: string) =>
-    bookings.find((b) => toDateISO(new Date(b.startsAt), TZ) === dateISO)?.title ?? null;
+  /*
+   * ช่วงเวลาที่ถูกจองของแต่ละวัน เรียงตามเวลา — ผู้ใช้ขอให้เห็น "ช่วงเวลา" ในช่องวัน
+   * ไม่ใช่แค่จำนวน จะได้กะได้ทันทีว่าวันนั้นเหลือช่วงไหนว่าง
+   */
+  const rangesByDay = new Map<string, { label: string; title: string | null }[]>();
+  for (const b of [...bookings].sort((a, z) => a.startsAt.localeCompare(z.startsAt))) {
+    if (b.status === 'cancelled' || b.status === 'rejected') continue;
+    const dateISO = toDateISO(new Date(b.startsAt), TZ);
+    const list = rangesByDay.get(dateISO) ?? [];
+    list.push({
+      label: formatTimeRange(new Date(b.startsAt), new Date(b.endsAt), TZ),
+      title: b.canSeeDetails ? b.title : null,
+    });
+    rangesByDay.set(dateISO, list);
+  }
+  const MAX_RANGES = 3;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -49,14 +63,15 @@ export function MonthView({
           const isToday = day.dateISO === todayISO;
           const meta = OCCUPANCY_META[day.occupancy];
           const dayNumber = Number(day.dateISO.slice(8, 10));
-          const sample = firstBookingTitle(day.dateISO);
+          const ranges = rangesByDay.get(day.dateISO) ?? [];
+          const busyDay = day.occupancy === 'full';
 
           return (
             <button
               key={day.dateISO}
               type="button"
               onClick={() => onPickDay(day.dateISO)}
-              aria-label={`${day.dateISO} ${t(meta.labelKey)} ${day.bookingCount > 0 ? t('calendar.bookingCountOne', { count: day.bookingCount }) : ''}${day.holidayName ? ` ${t('calendar.holiday')}: ${day.holidayName}` : ''}`}
+              aria-label={`${day.dateISO} ${busyDay ? t('calendar.busyDay') : t(meta.labelKey)} ${day.bookingCount > 0 ? t('calendar.bookingCountOne', { count: day.bookingCount }) : ''}${ranges.length > 0 ? ` ${ranges.map((r) => r.label).join(', ')}` : ''}${day.holidayName ? ` ${t('calendar.holiday')}: ${day.holidayName}` : ''}`}
               title={day.holidayName ?? undefined}
               className={cx(
                 'flex min-h-20 flex-col items-start gap-1 border-b border-e border-ink-100 p-1.5 text-start transition-colors',
@@ -82,19 +97,38 @@ export function MonthView({
                 )}
               </span>
 
-              {/* จุดสีบอกสถานะ + ข้อความกำกับ (ห้ามสื่อด้วยสีอย่างเดียว) */}
-              <span className="flex items-center gap-1 text-[10px] font-medium">
-                <span aria-hidden="true" style={{ color: meta.color }}>
-                  {meta.symbol}
+              {/* สถานะวัน: เต็ม = ป้ายแดง "ไม่ว่าง" (พื้นแดงเข้ม+ตัวขาว ผ่าน WCAG AA และมีสัญลักษณ์กำกับ) */}
+              {busyDay ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  <span aria-hidden="true">●</span>
+                  {t('calendar.busyDay')}
                 </span>
-                <span className={outside ? 'text-ink-400' : 'text-ink-600'}>{t(meta.labelKey)}</span>
-              </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] font-medium">
+                  <span aria-hidden="true" style={{ color: meta.color }}>
+                    {meta.symbol}
+                  </span>
+                  <span className={outside ? 'text-ink-400' : 'text-ink-600'}>{t(meta.labelKey)}</span>
+                </span>
+              )}
 
-              {day.bookingCount > 0 && (
-                <>
-                  <span className="text-[10px] text-ink-500">{t('calendar.bookingCountOne', { count: day.bookingCount })}</span>
-                  {sample && <span className="w-full truncate text-[10px] text-ink-600">{sample}</span>}
-                </>
+              {/* ช่วงเวลาที่ถูกจองในวันนั้น (สูงสุด 3 ช่วง ที่เหลือบอกเป็น +N) */}
+              {ranges.length > 0 && (
+                <span className="flex w-full flex-col gap-0.5">
+                  {ranges.slice(0, MAX_RANGES).map((r, i) => (
+                    <span
+                      key={i}
+                      className={cx('w-full truncate text-[10px] tabular-nums', busyDay ? 'text-red-700' : 'text-ink-700')}
+                      title={r.title ?? undefined}
+                    >
+                      {r.label}
+                      {r.title && <span className="text-ink-500"> {r.title}</span>}
+                    </span>
+                  ))}
+                  {ranges.length > MAX_RANGES && (
+                    <span className="text-[10px] text-ink-500">+{ranges.length - MAX_RANGES}</span>
+                  )}
+                </span>
               )}
             </button>
           );
