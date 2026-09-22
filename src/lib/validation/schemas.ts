@@ -82,7 +82,14 @@ export const createBookingSchema = z.object({
   endTime: timeHHmm,
   attendeeCount: z.coerce.number().int().min(1, 'จำนวนผู้เข้าร่วมต้องอย่างน้อย 1 คน').max(1000),
   attendees: z
-    .array(z.object({ email: emailSchema, displayName: z.string().trim().max(120).optional().nullable() }))
+    .array(
+      z.object({
+        email: emailSchema,
+        displayName: z.string().trim().max(120).optional().nullable(),
+        // คนในที่เลือกจากรายชื่อ — ระบบยังตรวจสอบซ้ำจากอีเมลอยู่ดี ค่านี้แค่ช่วยให้จับคู่แน่นอนขึ้น
+        profileId: z.string().uuid().optional().nullable(),
+      }),
+    )
     .max(200, 'ผู้เข้าร่วมมากเกินไป')
     .optional(),
   resources: z
@@ -127,6 +134,23 @@ export const searchQuerySchema = z.object({
   amenities: z.array(z.string().max(40)).optional(),
 });
 
+/** ตำแหน่งบนแผนที่ — ใช้ร่วมกันทั้งห้องและอาคาร (ลิงก์ต้อง https เท่านั้น พิกัดต้องมาเป็นคู่) */
+const mapLocationFields = {
+  mapUrl: z
+    .string()
+    .trim()
+    .max(2000, 'ลิงก์แผนที่ยาวเกินไป')
+    .refine((v) => v === '' || /^https:\/\//i.test(v), 'ลิงก์แผนที่ต้องขึ้นต้นด้วย https://')
+    .transform((v) => (v === '' ? null : v))
+    .optional()
+    .nullable(),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
+};
+const latLngPaired = (v: { latitude?: number | null; longitude?: number | null }) =>
+  (v.latitude == null) === (v.longitude == null);
+const LATLNG_PAIR_MESSAGE = { message: 'พิกัดต้องมีทั้งละติจูดและลองจิจูด', path: ['latitude'] };
+
 /** อาคาร — ผู้ดูแลห้องเพิ่ม/แก้ได้จากหน้าจัดการห้อง */
 export const buildingSchema = z.object({
   name: safeText(120, 'ชื่ออาคาร', 1, 'กรุณากรอกชื่ออาคาร'),
@@ -139,7 +163,8 @@ export const buildingSchema = z.object({
   address: safeText(300, 'ที่อยู่').optional().nullable(),
   sortOrder: z.coerce.number().int().min(0).max(10000).default(100),
   isActive: z.coerce.boolean().default(true),
-});
+  ...mapLocationFields,
+}).refine(latLngPaired, LATLNG_PAIR_MESSAGE);
 
 export const roomSchema = z.object({
   code: z
@@ -175,7 +200,8 @@ export const roomSchema = z.object({
   waitlistEnabled: z.coerce.boolean().default(false),
   sortOrder: z.coerce.number().int().min(0).max(9999).optional(),
   isActive: z.coerce.boolean().default(true),
-});
+  ...mapLocationFields,
+}).refine(latLngPaired, LATLNG_PAIR_MESSAGE);
 
 export const closureSchema = z.object({
   roomId: z.string().uuid(),

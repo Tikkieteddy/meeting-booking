@@ -1,4 +1,5 @@
 import 'server-only';
+import { buildMapLink, effectiveLocation } from './map-link';
 import { asService, lockRoom, withTx, type DbContext, type Sql } from '@/lib/db/pool';
 import { writeAudit } from '@/lib/audit';
 import { t } from '@/lib/i18n';
@@ -59,6 +60,10 @@ export type BookingRecord = {
   id: string;
   roomId: string;
   roomName: string;
+  /** ลิงก์เปิดแผนที่ของห้อง (หรือของอาคารถ้าห้องไม่ได้ตั้ง) — null ถ้าไม่มี */
+  roomMapLink: string | null;
+  roomLatitude: number | null;
+  roomLongitude: number | null;
   title: string;
   startsAt: Date;
   endsAt: Date;
@@ -206,7 +211,17 @@ function bookingLink(bookingId: string): string {
 async function notifyBookingEvent(
   sql: Sql,
   actor: Actor,
-  booking: { id: string; title: string; startsAt: Date; endsAt: Date; roomName: string; bookerProfileId: string; bookerEmail: string; privacy: string },
+  booking: {
+    id: string;
+    title: string;
+    startsAt: Date;
+    endsAt: Date;
+    roomName: string;
+    roomMapLink?: string | null;
+    bookerProfileId: string;
+    bookerEmail: string;
+    privacy: string;
+  },
   event: 'booking.confirmed' | 'booking.pending_approval' | 'booking.updated' | 'booking.cancelled' | 'booking.approved' | 'booking.rejected',
   extra: { attendeeProfileIds?: string[]; attendeeEmails?: string[]; approverProfileIds?: string[]; reason?: string | null } = {},
 ) {
@@ -224,7 +239,9 @@ async function notifyBookingEvent(
     'booking.rejected': `ถูกปฏิเสธ: ${booking.title}`,
   };
   const subject = titles[event];
-  const body = `ห้อง ${booking.roomName}\n${when}${extra.reason ? `\nเหตุผล: ${extra.reason}` : ''}`;
+  // ลิงก์แผนที่ไม่ใช่ข้อมูลส่วนตัวของการประชุม จึงใส่ให้ทุกผู้รับ รวมถึงผู้เข้าร่วมการประชุมแบบ private
+  const mapLine = booking.roomMapLink ? `\nแผนที่: ${booking.roomMapLink}` : '';
+  const body = `ห้อง ${booking.roomName}\n${when}${mapLine}${extra.reason ? `\nเหตุผล: ${extra.reason}` : ''}`;
 
   const payload = {
     subject,
@@ -264,7 +281,7 @@ async function notifyBookingEvent(
   // ผู้เข้าร่วม — ไม่ส่งรายละเอียดของการประชุมแบบ private เกินจำเป็น (บรีฟข้อ 10)
   const attendeePayload =
     booking.privacy === 'private'
-      ? { ...payload, subject: 'มีการนัดประชุมที่คุณเกี่ยวข้อง', text: `ห้อง ${booking.roomName}\n${when}` }
+      ? { ...payload, subject: 'มีการนัดประชุมที่คุณเกี่ยวข้อง', text: `ห้อง ${booking.roomName}\n${when}${mapLine}` }
       : payload;
   for (const email of extra.attendeeEmails ?? []) {
     if (email.toLowerCase() === booking.bookerEmail.toLowerCase()) continue;
@@ -310,7 +327,12 @@ async function notifyBookingEvent(
   }
 }
 
-async function scheduleReminders(sql: Sql, bookingId: string, profileId: string, booking: { title: string; startsAt: Date; endsAt: Date; roomName: string }) {
+async function scheduleReminders(
+  sql: Sql,
+  bookingId: string,
+  profileId: string,
+  booking: { title: string; startsAt: Date; endsAt: Date; roomName: string; roomMapLink?: string | null },
+) {
   // อ่านค่าตั้งการแจ้งเตือนของ "ผู้จอง" ซึ่งอาจไม่ใช่ผู้ที่กำลังทำรายการ (เช่น ผู้อนุมัติกดอนุมัติ)
   const prefRes = await asService(sql, () =>
     sql.query<{ reminder_leads: number[]; email_enabled: boolean; line_enabled: boolean }>(
@@ -326,7 +348,7 @@ async function scheduleReminders(sql: Sql, bookingId: string, profileId: string,
     if (scheduledFor.getTime() <= Date.now()) continue;
     const payload = {
       subject: `เตือนประชุม: ${booking.title}`,
-      text: `ห้อง ${booking.roomName}\n${when}`,
+      text: `ห้อง ${booking.roomName}\n${when}${booking.roomMapLink ? `\nแผนที่: ${booking.roomMapLink}` : ''}`,
       link: bookingLink(bookingId),
       data: { lead: String(lead) },
     };
@@ -562,19 +584,36 @@ export async function getBookingRecord(sql: Sql, bookingId: string): Promise<Boo
     attendee_count: number;
     version: number;
     checked_in_at: Date | null;
+    map_url: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    building_map_url: string | null;
+    building_latitude: number | null;
+    building_longitude: number | null;
   }>(
     `SELECT b.id, b.room_id, r.name AS room_name, b.title, b.starts_at, b.ends_at, b.status, b.privacy,
-            b.series_id, b.booker_profile_id, b.booker_name, b.attendee_count, b.version, b.checked_in_at
-       FROM bookings b JOIN rooms r ON r.id = b.room_id
+            b.series_id, b.booker_profile_id, b.booker_name, b.attendee_count, b.version, b.checked_in_at,
+            r.map_url, r.latitude, r.longitude,
+            bd.map_url AS building_map_url, bd.latitude AS building_latitude, bd.longitude AS building_longitude
+       FROM bookings b
+       JOIN rooms r ON r.id = b.room_id
+       LEFT JOIN buildings bd ON bd.id = r.building_id
       WHERE b.id = $1`,
     [bookingId],
   );
   const row = res.rows[0];
   if (!row) return null;
+  const location = effectiveLocation(
+    { mapUrl: row.map_url, latitude: row.latitude, longitude: row.longitude },
+    { mapUrl: row.building_map_url, latitude: row.building_latitude, longitude: row.building_longitude },
+  );
   return {
     id: row.id,
     roomId: row.room_id,
     roomName: row.room_name,
+    roomMapLink: buildMapLink(location),
+    roomLatitude: location.latitude ?? null,
+    roomLongitude: location.longitude ?? null,
     title: row.title,
     startsAt: row.starts_at,
     endsAt: row.ends_at,

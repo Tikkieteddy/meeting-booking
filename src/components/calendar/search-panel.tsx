@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MapLink } from '@/components/ui/map-link';
 import type { Amenity, Room } from '@/lib/domain/rooms';
 import type { BookingSearchResult } from '@/lib/domain/search';
 import { Button, EmptyState, Field, Input, Select, SkeletonBlock, StatusBadge, cx } from '@/components/ui/primitives';
@@ -294,7 +295,10 @@ export function SearchPanel({
                 result.rooms.map((room) => (
                   <div key={room.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-ink-200 p-3">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-ink-900">{room.name}</p>
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-900">
+                        <span className="truncate">{room.name}</span>
+                        <MapLink href={room.mapLink} compact />
+                      </p>
                       <p className="truncate text-xs text-ink-500">
                         {room.code} · {room.capacity} {t('common.people')}
                         {room.buildingName ? ` · ${room.buildingName}` : ''}

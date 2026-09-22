@@ -1,4 +1,5 @@
 import 'server-only';
+import { buildMapLink, effectiveLocation, hasCoordinates } from '@/lib/domain/map-link';
 import { withServiceTx, type Sql } from '@/lib/db/pool';
 import { logger } from '@/lib/util/logger';
 import { sendEmail, sendLine } from './providers';
@@ -131,18 +132,36 @@ async function resolveRecipient(
       booker_name: string;
       version: number;
       status: string;
+      map_url: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      building_map_url: string | null;
+      building_latitude: number | null;
+      building_longitude: number | null;
     }>(
       `SELECT b.id, b.title, b.starts_at, b.ends_at, r.name AS room_name, r.code AS room_code,
-              b.booker_email, b.booker_name, b.version, b.status
-         FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id = $1`,
+              b.booker_email, b.booker_name, b.version, b.status,
+              r.map_url, r.latitude, r.longitude,
+              bd.map_url AS building_map_url, bd.latitude AS building_latitude, bd.longitude AS building_longitude
+         FROM bookings b
+         JOIN rooms r ON r.id = b.room_id
+         LEFT JOIN buildings bd ON bd.id = r.building_id
+        WHERE b.id = $1`,
       [job.booking_id],
     );
     const row = res.rows[0];
     if (row) {
+      const location = effectiveLocation(
+        { mapUrl: row.map_url, latitude: row.latitude, longitude: row.longitude },
+        { mapUrl: row.building_map_url, latitude: row.building_latitude, longitude: row.building_longitude },
+      );
+      const mapLink = buildMapLink(location);
       icsEvent = {
         uid: `${row.id}@tnn-meeting`,
         title: row.title,
         location: `${row.room_name} (${row.room_code})`,
+        description: mapLink ? `แผนที่: ${mapLink}` : null,
+        geo: hasCoordinates(location) ? { latitude: location.latitude, longitude: location.longitude } : null,
         startsAt: row.starts_at,
         endsAt: row.ends_at,
         organizerEmail: row.booker_email,

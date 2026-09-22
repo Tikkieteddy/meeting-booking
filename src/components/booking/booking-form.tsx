@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { MapLink } from '@/components/ui/map-link';
 import type { Room, Amenity } from '@/lib/domain/rooms';
 import { Button, Checkbox, Field, Input, Select, Textarea, cx } from '@/components/ui/primitives';
 import { Overlay } from '@/components/ui/overlay';
@@ -134,9 +135,12 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
       description={`${room.name} · ${formatThaiDate(dateISO)}`}
       footer={
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-ink-500">
-            {startTime} – {endTime} · {durationLabel(new Date(0), new Date(effectiveDuration * 60_000))}
-            {room.policy.requiresApproval && <span className="ms-2 text-purple-700">· ต้องขออนุมัติ</span>}
+          <p className="flex flex-wrap items-center gap-2 text-xs text-ink-500">
+            <span>
+              {startTime} – {endTime} · {durationLabel(new Date(0), new Date(effectiveDuration * 60_000))}
+              {room.policy.requiresApproval && <span className="ms-2 text-purple-700">· ต้องขออนุมัติ</span>}
+            </span>
+            <MapLink href={room.mapLink} compact />
           </p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={onClose} disabled={loading}>

@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { MapLink } from '@/components/ui/map-link';
 import Link from 'next/link';
 import { getSessionUser } from '@/lib/auth/current-user';
 import { getBookingDetail } from '@/lib/domain/booking-service';
@@ -31,9 +32,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-ink-900">{detail.canSeeDetails ? detail.title : t('booking.busySlot')}</h1>
-          <p className="mt-1 text-sm text-ink-600">
-            {detail.roomName} ({detail.roomCode}) · {formatThaiDate(detail.startsAt.toISOString().slice(0, 10))}{' '}
-            {formatTimeRange(detail.startsAt, detail.endsAt)}
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-600">
+            <span>
+              {detail.roomName} ({detail.roomCode}) · {formatThaiDate(detail.startsAt.toISOString().slice(0, 10))}{' '}
+              {formatTimeRange(detail.startsAt, detail.endsAt)}
+            </span>
+            <MapLink href={detail.roomMapLink} compact />
           </p>
         </div>
         <StatusBadge status={detail.status} label={t(`status.${detail.status}` as 'status.confirmed')} />

@@ -17,8 +17,16 @@ export const GET = withApi(async (_request: Request, context: { params: Promise<
   const ics = buildIcs({
     uid: `${detail.id}@tnn-meeting`,
     title: detail.canSeeDetails ? detail.title : t('booking.busySlot'),
-    description: detail.canSeeDetails ? (detail.purpose ?? undefined) : undefined,
+    // วัตถุประสงค์ (เฉพาะคนที่มีสิทธิ์เห็น) + ลิงก์แผนที่ (ทุกคน) ในคำอธิบายเดียวกัน
+    description:
+      [detail.canSeeDetails ? detail.purpose : null, detail.roomMapLink ? `แผนที่: ${detail.roomMapLink}` : null]
+        .filter(Boolean)
+        .join('\n') || null,
     location: `${detail.roomName} (${detail.roomCode})`,
+    geo:
+      detail.roomLatitude != null && detail.roomLongitude != null
+        ? { latitude: detail.roomLatitude, longitude: detail.roomLongitude }
+        : null,
     startsAt: detail.startsAt,
     endsAt: detail.endsAt,
     organizerEmail: detail.bookerEmail,

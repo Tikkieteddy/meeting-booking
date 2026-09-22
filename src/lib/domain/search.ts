@@ -63,6 +63,8 @@ export async function searchRooms(ctx: DbContext, input: RoomSearchInput): Promi
     const res = await sql.query<Parameters<typeof mapRoom>[0] & { next_free_from: Date | null }>(
       `SELECT r.id, r.organization_id, r.code, r.name, r.description, r.floor, r.location_hint,
               r.capacity, r.room_type, r.photos, r.color, r.building_id, b.name AS building_name,
+              r.map_url, r.latitude, r.longitude,
+              b.map_url AS building_map_url, b.latitude AS building_latitude, b.longitude AS building_longitude,
               to_char(r.open_time, 'HH24:MI') AS open_time, to_char(r.close_time, 'HH24:MI') AS close_time,
               r.open_days, r.slot_step_minutes, r.min_duration_minutes, r.max_duration_minutes,
               r.buffer_before_minutes, r.buffer_after_minutes, r.booking_horizon_days,

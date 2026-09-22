@@ -1,6 +1,7 @@
 'use client';
 
 import type { CalendarView } from '@/lib/domain/calendar-shared';
+import { MapLink } from '@/components/ui/map-link';
 import type { Room } from '@/lib/domain/rooms';
 import { Button, cx } from '@/components/ui/primitives';
 import { t } from '@/lib/i18n';
@@ -132,6 +133,7 @@ export function CalendarToolbar({
               </option>
             ))}
           </select>
+          <MapLink href={selectedRoom?.mapLink} compact className="hidden sm:inline-flex" />
         </div>
 
         <div className="order-last flex w-full items-center gap-2 sm:order-none sm:ms-auto sm:w-auto">

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import type { Amenity, Building, Room } from '@/lib/domain/rooms';
 import { Badge, Button, Checkbox, Field, Input, Select, Textarea, cx } from '@/components/ui/primitives';
 import { ConfirmDialog, Overlay } from '@/components/ui/overlay';
+import { MapLink } from '@/components/ui/map-link';
+import { LocationPicker } from './location-picker';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
@@ -54,6 +56,9 @@ function emptyRoom(): RoomFormState {
     waitlistEnabled: false,
     sortOrder: 100,
     isActive: true,
+    mapUrl: '',
+    latitude: null,
+    longitude: null,
   };
 }
 
@@ -85,9 +90,21 @@ type RoomFormState = {
   waitlistEnabled: boolean;
   sortOrder: number;
   isActive: boolean;
+  mapUrl: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
-type BuildingFormState = { name: string; code: string; address: string; sortOrder: number; isActive: boolean };
+type BuildingFormState = {
+  name: string;
+  code: string;
+  address: string;
+  sortOrder: number;
+  isActive: boolean;
+  mapUrl: string;
+  latitude: number | null;
+  longitude: number | null;
+};
 
 function toFormState(room: Room): RoomFormState {
   return {
@@ -118,6 +135,9 @@ function toFormState(room: Room): RoomFormState {
     waitlistEnabled: room.policy.waitlistEnabled,
     sortOrder: room.sortOrder,
     isActive: room.isActive,
+    mapUrl: room.mapUrl ?? '',
+    latitude: room.latitude,
+    longitude: room.longitude,
   };
 }
 
@@ -146,6 +166,7 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
         floor: editing.state.floor || null,
         locationHint: editing.state.locationHint || null,
         buildingId: editing.state.buildingId || null,
+        mapUrl: editing.state.mapUrl || null,
       };
       if (editing.id) {
         await apiFetch(`/api/rooms/${editing.id}`, { method: 'PUT', body: JSON.stringify(payload) });
@@ -187,7 +208,7 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
     setBusy(true);
     setBuildingErrors({});
     try {
-      const payload = { ...buildingEdit.state, address: buildingEdit.state.address || null };
+      const payload = { ...buildingEdit.state, address: buildingEdit.state.address || null, mapUrl: buildingEdit.state.mapUrl || null };
       if (buildingEdit.id) {
         await apiFetch(`/api/buildings/${buildingEdit.id}`, { method: 'PUT', body: JSON.stringify(payload) });
       } else {
@@ -233,7 +254,12 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => setBuildingEdit({ id: null, state: { name: '', code: '', address: '', sortOrder: 100, isActive: true } })}
+            onClick={() =>
+              setBuildingEdit({
+                id: null,
+                state: { name: '', code: '', address: '', sortOrder: 100, isActive: true, mapUrl: '', latitude: null, longitude: null },
+              })
+            }
           >
             <span aria-hidden="true">＋</span> {t('building.addNew')}
           </Button>
@@ -243,13 +269,22 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
         ) : (
           <ul className="flex flex-wrap gap-2">
             {buildings.map((b) => (
-              <li key={b.id}>
+              <li key={b.id} className="flex items-center">
                 <button
                   type="button"
                   onClick={() =>
                     setBuildingEdit({
                       id: b.id,
-                      state: { name: b.name, code: b.code, address: b.address ?? '', sortOrder: b.sortOrder, isActive: b.isActive },
+                      state: {
+                        name: b.name,
+                        code: b.code,
+                        address: b.address ?? '',
+                        sortOrder: b.sortOrder,
+                        isActive: b.isActive,
+                        mapUrl: b.mapUrl ?? '',
+                        latitude: b.latitude,
+                        longitude: b.longitude,
+                      },
                     })
                   }
                   className={cx(
@@ -262,6 +297,7 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
                   {!b.isActive && <Badge>{t('building.hidden')}</Badge>}
                   <span className="sr-only"> — {t('building.edit')}</span>
                 </button>
+                <MapLink href={b.mapLink} compact className="ms-1" />
               </li>
             ))}
           </ul>
@@ -281,6 +317,7 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
                 {room.archivedAt && <Badge>{t('room.archived')}</Badge>}
                 {room.policy.requiresApproval && <Badge tone="warn">{t('room.requiresApproval')}</Badge>}
                 {room.policy.waitlistEnabled && <Badge tone="brand">คิวรอ</Badge>}
+                <MapLink href={room.mapLink} compact />
               </p>
               <p className="text-xs text-ink-500">
                 {room.capacity} {t('common.people')}
@@ -377,6 +414,18 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
             <Field label="คำอธิบาย" htmlFor="r-desc" error={fieldErrors.description}>
               <Textarea id="r-desc" value={state.description} onChange={(e) => update({ description: e.target.value })} />
             </Field>
+
+            <LocationPicker
+              idPrefix="r"
+              value={{ mapUrl: state.mapUrl, latitude: state.latitude, longitude: state.longitude }}
+              onChange={(loc) => update(loc)}
+              inheritedLink={buildings.find((b) => b.id === state.buildingId)?.mapLink ?? null}
+            />
+            {(fieldErrors.mapUrl || fieldErrors.latitude) && (
+              <p role="alert" className="text-xs font-medium text-red-700">
+                {fieldErrors.mapUrl ?? fieldErrors.latitude}
+              </p>
+            )}
 
             <fieldset className="flex flex-col gap-2">
               <legend className="text-sm font-medium text-ink-700">{t('room.amenities')}</legend>
@@ -544,7 +593,7 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
           open
           onClose={() => setBuildingEdit(null)}
           title={buildingEdit.id ? t('building.edit') : t('building.addNew')}
-          size="sm"
+          size="md"
           footer={
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setBuildingEdit(null)} disabled={busy}>
@@ -566,6 +615,16 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
             <Field label={t('building.address')} htmlFor="b-address" error={buildingErrors.address}>
               <Input id="b-address" value={buildingEdit.state.address} onChange={(e) => updateBuildingForm({ address: e.target.value })} />
             </Field>
+            <LocationPicker
+              idPrefix="b"
+              value={{ mapUrl: buildingEdit.state.mapUrl, latitude: buildingEdit.state.latitude, longitude: buildingEdit.state.longitude }}
+              onChange={(loc) => updateBuildingForm(loc)}
+            />
+            {(buildingErrors.mapUrl || buildingErrors.latitude) && (
+              <p role="alert" className="text-xs font-medium text-red-700">
+                {buildingErrors.mapUrl ?? buildingErrors.latitude}
+              </p>
+            )}
             {buildingEdit.id && (
               <Checkbox
                 label={t('building.isActive')}

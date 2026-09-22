@@ -4,6 +4,7 @@ import { withTx } from '@/lib/db/pool';
 import { writeAudit } from '@/lib/audit';
 import type { RoomPolicy } from './booking-rules';
 import { ConflictError, ForbiddenError, NotFoundError, PG_ERROR, pgErrorCode } from './errors';
+import { buildMapLink, effectiveLocation } from './map-link';
 
 export type Amenity = { code: string; nameTh: string; nameEn: string; icon: string };
 
@@ -21,6 +22,12 @@ export type Room = {
   color: string;
   buildingId: string | null;
   buildingName: string | null;
+  /** ตำแหน่งที่ตั้งเอง (อาจว่าง แล้วใช้ของอาคารแทน) */
+  mapUrl: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  /** ลิงก์เปิดแผนที่ที่ใช้จริง (ของห้อง หรือถ้าไม่มีก็ของอาคาร) — null ถ้าไม่มีทั้งคู่ */
+  mapLink: string | null;
   amenities: Amenity[];
   sortOrder: number;
   isActive: boolean;
@@ -42,6 +49,12 @@ type RoomRow = {
   color: string;
   building_id: string | null;
   building_name: string | null;
+  map_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  building_map_url: string | null;
+  building_latitude: number | null;
+  building_longitude: number | null;
   open_time: string;
   close_time: string;
   open_days: number[];
@@ -65,6 +78,8 @@ type RoomRow = {
 const ROOM_SELECT = `
   SELECT r.id, r.organization_id, r.code, r.name, r.description, r.floor, r.location_hint,
          r.capacity, r.room_type, r.photos, r.color, r.building_id, b.name AS building_name,
+         r.map_url, r.latitude, r.longitude,
+         b.map_url AS building_map_url, b.latitude AS building_latitude, b.longitude AS building_longitude,
          to_char(r.open_time, 'HH24:MI') AS open_time,
          to_char(r.close_time, 'HH24:MI') AS close_time,
          r.open_days, r.slot_step_minutes, r.min_duration_minutes, r.max_duration_minutes,
@@ -94,6 +109,15 @@ export function mapRoom(row: RoomRow): Room {
     color: row.color,
     buildingId: row.building_id,
     buildingName: row.building_name,
+    mapUrl: row.map_url,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    mapLink: buildMapLink(
+      effectiveLocation(
+        { mapUrl: row.map_url, latitude: row.latitude, longitude: row.longitude },
+        { mapUrl: row.building_map_url, latitude: row.building_latitude, longitude: row.building_longitude },
+      ),
+    ),
     amenities: row.amenities ?? [],
     sortOrder: row.sort_order,
     isActive: row.is_active,
@@ -153,6 +177,9 @@ export type RoomInput = {
   capacity: number;
   roomType: string;
   buildingId?: string | null;
+  mapUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   color?: string;
   photos?: string[];
   amenityCodes?: string[];
@@ -202,6 +229,9 @@ const ROOM_WRITE_COLUMNS = [
   'waitlist_enabled',
   'sort_order',
   'is_active',
+  'map_url',
+  'latitude',
+  'longitude',
 ];
 
 function roomValues(input: RoomInput): unknown[] {
@@ -232,6 +262,9 @@ function roomValues(input: RoomInput): unknown[] {
     input.waitlistEnabled,
     input.sortOrder ?? 100,
     input.isActive ?? true,
+    input.mapUrl ?? null,
+    input.latitude ?? null,
+    input.longitude ?? null,
   ];
 }
 
@@ -364,6 +397,11 @@ export type Building = {
   address: string | null;
   sortOrder: number;
   isActive: boolean;
+  mapUrl: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  /** ลิงก์เปิดแผนที่ (ลิงก์ที่วางมา หรือสร้างจากพิกัด) */
+  mapLink: string | null;
 };
 
 export type BuildingInput = {
@@ -372,9 +410,23 @@ export type BuildingInput = {
   address?: string | null;
   sortOrder?: number;
   isActive?: boolean;
+  mapUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
-type BuildingRow = { id: string; name: string; code: string; address: string | null; sort_order: number; is_active: boolean };
+type BuildingRow = {
+  id: string;
+  name: string;
+  code: string;
+  address: string | null;
+  sort_order: number;
+  is_active: boolean;
+  map_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+const BUILDING_COLUMNS = 'id, name, code, address, sort_order, is_active, map_url, latitude, longitude';
 const toBuilding = (r: BuildingRow): Building => ({
   id: r.id,
   name: r.name,
@@ -382,6 +434,10 @@ const toBuilding = (r: BuildingRow): Building => ({
   address: r.address,
   sortOrder: r.sort_order,
   isActive: r.is_active,
+  mapUrl: r.map_url,
+  latitude: r.latitude,
+  longitude: r.longitude,
+  mapLink: buildMapLink({ mapUrl: r.map_url, latitude: r.latitude, longitude: r.longitude }),
 });
 
 /**
@@ -391,7 +447,7 @@ const toBuilding = (r: BuildingRow): Building => ({
 export async function listBuildings(ctx: DbContext, opts: { includeInactive?: boolean } = {}): Promise<Building[]> {
   return withTx(ctx, async (sql) => {
     const res = await sql.query<BuildingRow>(
-      `SELECT id, name, code, address, sort_order, is_active FROM buildings
+      `SELECT ${BUILDING_COLUMNS} FROM buildings
         ${opts.includeInactive ? '' : 'WHERE is_active'}
         ORDER BY is_active DESC, sort_order, name`,
     );
@@ -415,10 +471,20 @@ export async function createBuilding(
     let res;
     try {
       res = await sql.query<BuildingRow>(
-        `INSERT INTO buildings (organization_id, name, code, address, sort_order, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, name, code, address, sort_order, is_active`,
-        [organizationId, input.name, input.code, input.address ?? null, input.sortOrder ?? 100, input.isActive ?? true],
+        `INSERT INTO buildings (organization_id, name, code, address, sort_order, is_active, map_url, latitude, longitude)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING ${BUILDING_COLUMNS}`,
+        [
+          organizationId,
+          input.name,
+          input.code,
+          input.address ?? null,
+          input.sortOrder ?? 100,
+          input.isActive ?? true,
+          input.mapUrl ?? null,
+          input.latitude ?? null,
+          input.longitude ?? null,
+        ],
       );
     } catch (error) {
       if (pgErrorCode(error) === PG_ERROR.uniqueViolation) {
@@ -448,18 +514,27 @@ export async function updateBuilding(
   actor: BuildingActor,
 ): Promise<Building> {
   return withTx(ctx, async (sql) => {
-    const before = await sql.query<BuildingRow>(
-      'SELECT id, name, code, address, sort_order, is_active FROM buildings WHERE id = $1',
-      [buildingId],
-    );
+    const before = await sql.query<BuildingRow>(`SELECT ${BUILDING_COLUMNS} FROM buildings WHERE id = $1`, [buildingId]);
     if (before.rowCount === 0) throw new NotFoundError('ไม่พบอาคารที่ต้องการแก้ไข');
     let res;
     try {
       res = await sql.query<BuildingRow>(
-        `UPDATE buildings SET name = $2, code = $3, address = $4, sort_order = $5, is_active = $6, updated_at = now()
+        `UPDATE buildings
+            SET name = $2, code = $3, address = $4, sort_order = $5, is_active = $6,
+                map_url = $7, latitude = $8, longitude = $9, updated_at = now()
           WHERE id = $1
-          RETURNING id, name, code, address, sort_order, is_active`,
-        [buildingId, input.name, input.code, input.address ?? null, input.sortOrder ?? 100, input.isActive ?? true],
+          RETURNING ${BUILDING_COLUMNS}`,
+        [
+          buildingId,
+          input.name,
+          input.code,
+          input.address ?? null,
+          input.sortOrder ?? 100,
+          input.isActive ?? true,
+          input.mapUrl ?? null,
+          input.latitude ?? null,
+          input.longitude ?? null,
+        ],
       );
     } catch (error) {
       if (pgErrorCode(error) === PG_ERROR.uniqueViolation) {

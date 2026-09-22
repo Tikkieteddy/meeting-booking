@@ -15,6 +15,8 @@ export type IcsEvent = {
   status?: 'CONFIRMED' | 'TENTATIVE' | 'CANCELLED';
   sequence?: number;
   url?: string | null;
+  /** พิกัดห้อง — แอปปฏิทินจะแสดงปุ่มนำทางให้เอง (RFC 5545 GEO) */
+  geo?: { latitude: number; longitude: number } | null;
 };
 
 function toIcsDate(date: Date): string {
@@ -59,6 +61,7 @@ export function buildIcs(event: IcsEvent, now = new Date()): string {
   if (event.description) lines.push(`DESCRIPTION:${escapeText(event.description)}`);
   if (event.location) lines.push(`LOCATION:${escapeText(event.location)}`);
   if (event.url) lines.push(`URL:${event.url}`);
+  if (event.geo) lines.push(`GEO:${event.geo.latitude.toFixed(6)};${event.geo.longitude.toFixed(6)}`);
   if (event.organizerEmail) {
     const cn = event.organizerName ? `;CN=${escapeText(event.organizerName)}` : '';
     lines.push(`ORGANIZER${cn}:mailto:${event.organizerEmail}`);

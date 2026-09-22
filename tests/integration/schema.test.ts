@@ -207,3 +207,22 @@ describe('audit log แก้ไขย้อนหลังไม่ได้', 
     expect(still).toBe(1);
   });
 });
+
+describe('ตำแหน่งบนแผนที่ (migration 009)', () => {
+  it('ฐานข้อมูลปฏิเสธพิกัดนอกช่วงโลกและลิงก์ที่ไม่ใช่ https แม้โค้ดจะพลาด', async () => {
+    const orgId = await withServiceTx(async (sql) => {
+      const res = await sql.query<{ id: string }>('SELECT id FROM organizations LIMIT 1');
+      return res.rows[0]!.id;
+    });
+    await expect(
+      withServiceTx(async (sql) => {
+        await sql.query("INSERT INTO buildings (organization_id, name, code, latitude, longitude) VALUES ($1, 'x', 'LAT-BAD', 95, 100)", [orgId]);
+      }),
+    ).rejects.toThrow(/buildings_latlng_valid/);
+    await expect(
+      withServiceTx(async (sql) => {
+        await sql.query("INSERT INTO buildings (organization_id, name, code, map_url) VALUES ($1, 'x', 'URL-BAD', 'http://example.com')", [orgId]);
+      }),
+    ).rejects.toThrow(/buildings_map_url_https/);
+  });
+});
