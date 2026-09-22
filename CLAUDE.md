@@ -176,6 +176,11 @@ UI ซ่อนเมนู → API เรียก `requirePermission()` → �
   ระบบใช้ `pg_advisory_xact_lock` (ล็อกระดับ transaction) จึงทำงานถูกต้องใต้ pooler โหมดนี้ —
   **ห้ามเปลี่ยนไปใช้ล็อกระดับ session** เพราะจะพังเงียบ ๆ เมื่อ connection ถูกสลับ
 - แก้ environment variable แล้วต้อง **Redeploy** ค่าใหม่จึงมีผล
+- **หน้าใดเรียก `env()` ต้องมี `export const dynamic = 'force-dynamic'`** ไม่อย่างนั้น Next.js
+  จะประกอบหน้านั้นล่วงหน้าตอน build และ Vercel **Preview** (ซึ่งไม่มี env) จะพังทั้ง build
+  — Production ผ่านเพราะมี env ครบ จึงเห็นปัญหาเฉพาะ Preview
+- **ทดสอบ build "โดยไม่มี env" ต้องย้าย `.env.local` ออกจริง ๆ** เพราะ Next.js อ่านไฟล์นั้น
+  ตอน build เองโดยไม่บอก แค่ไม่ตั้งค่าใน shell ไม่พอ
 - ข้อความใน `<label>` ต้องเท่ากับชื่อฟิลด์เป๊ะ ๆ (เครื่องหมาย `*` วางไว้นอก label)
   เพราะ screen reader และเทสต์ใช้ข้อความนี้เป็นชื่อของ control
 - ห้องตัวอย่างในไฟล์ seed เปิดจันทร์–ศุกร์ เทสต์ที่จองต้องเลือกวันทำการ
