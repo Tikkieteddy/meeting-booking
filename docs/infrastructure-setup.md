@@ -409,6 +409,18 @@ npm run db:upgrade-sql -- 009 > db/upgrades/upgrade-009.sql
 
 แล้ว commit ไฟล์นั้นไปด้วย ผู้ดูแลระบบจะได้คัดลอกจาก GitHub ได้โดยไม่ต้องรันอะไรเอง
 
+### 2.4.2 สาขาที่ Vercel ใช้สร้างเว็บจริง (Production Branch)
+
+ตั้งไว้ที่ **Settings → Environments → Production → Branch Tracking**
+ปัจจุบันชี้ไปที่สาขา `claude/meeting-room-booking-system-13kkwv` (ตัดสินใจ 22 ก.ย. 2569)
+
+ผลคือ **ทุก commit ที่ส่งขึ้นสาขานี้จะขึ้นเว็บจริงอัตโนมัติ** ภายในราว 2 นาที
+ไม่มีขั้นทดลอง (Preview) คั่น — ผู้พัฒนาจึงต้องรัน `npm run verify` และ `npm run build`
+ให้ผ่านก่อน push ทุกครั้ง และรัน migration บน Neon ก่อน push โค้ดที่ต้องใช้ตารางใหม่ (ข้อ 2.4.1)
+
+สาขา `main` มีอยู่บน GitHub แต่ Vercel ไม่ได้ใช้ ถ้าวันหน้าต้องการขั้นทดลองก่อนปล่อยจริง
+ให้เปลี่ยน Branch Tracking กลับเป็น `main` แล้วรวมโค้ดเข้า `main` เฉพาะตอนจะปล่อย
+
 ### 2.5 Backup และการกู้คืน
 
 Neon ไม่ได้ทำ backup เป็นไฟล์แบบเดิม แต่เก็บ "ประวัติการเปลี่ยนแปลง" ไว้
