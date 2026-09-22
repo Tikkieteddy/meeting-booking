@@ -54,6 +54,20 @@ export function Overlay({
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
+  /*
+   * เก็บ onClose ไว้ใน ref แทนการใส่เป็น dependency ของ effect
+   *
+   * เหตุผล: ผู้เรียกมักส่ง onClose={() => setX(null)} ซึ่งเป็นฟังก์ชันใหม่ทุกครั้งที่
+   * component แม่ render ใหม่ — และแม่ render ใหม่ทุกครั้งที่ผู้ใช้พิมพ์ในฟอร์ม
+   * ถ้า effect ผูกกับ onClose มันจะรื้อแล้วตั้งใหม่ทุกตัวอักษร ซึ่งมีคำสั่ง
+   * "ย้าย focus ไปปุ่มแรก" อยู่ด้วย ผลคือพิมพ์ 1 ตัวแล้ว focus กระโดดไปปุ่ม ✕
+   * (บั๊กที่ผู้ใช้เจอจริงในหน้าเพิ่มห้อง)
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   const focusables = useCallback(() => {
     if (!panelRef.current) return [] as HTMLElement[];
     return [
@@ -80,7 +94,7 @@ export function Overlay({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab') return;
@@ -112,7 +126,8 @@ export function Overlay({
         });
       }
     };
-  }, [open, onClose, focusables]);
+    // ผูกกับ open เท่านั้น — ดูคอมเมนต์ที่ onCloseRef ด้านบน
+  }, [open, focusables]);
 
   if (!open) return null;
 
