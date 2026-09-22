@@ -127,6 +127,20 @@ export const searchQuerySchema = z.object({
   amenities: z.array(z.string().max(40)).optional(),
 });
 
+/** อาคาร — ผู้ดูแลห้องเพิ่ม/แก้ได้จากหน้าจัดการห้อง */
+export const buildingSchema = z.object({
+  name: safeText(120, 'ชื่ออาคาร', 1, 'กรุณากรอกชื่ออาคาร'),
+  code: z
+    .string()
+    .trim()
+    .min(1, 'กรุณากรอกรหัสอาคาร')
+    .max(40)
+    .regex(/^[A-Za-z0-9._-]+$/, 'รหัสอาคารใช้ได้เฉพาะ A-Z 0-9 . _ -'),
+  address: safeText(300, 'ที่อยู่').optional().nullable(),
+  sortOrder: z.coerce.number().int().min(0).max(10000).default(100),
+  isActive: z.coerce.boolean().default(true),
+});
+
 export const roomSchema = z.object({
   code: z
     .string()

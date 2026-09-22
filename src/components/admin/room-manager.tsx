@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Amenity, Room } from '@/lib/domain/rooms';
+import type { Amenity, Building, Room } from '@/lib/domain/rooms';
 import { Badge, Button, Checkbox, Field, Input, Select, Textarea, cx } from '@/components/ui/primitives';
 import { ConfirmDialog, Overlay } from '@/components/ui/overlay';
 import { useToast } from '@/components/ui/toast';
@@ -13,7 +13,7 @@ import { thaiWeekday } from '@/lib/util/time';
 type Props = {
   rooms: Room[];
   amenities: Amenity[];
-  buildings: { id: string; name: string }[];
+  buildings: Building[];
   approvers: { id: string; fullName: string }[];
 };
 
@@ -87,6 +87,8 @@ type RoomFormState = {
   isActive: boolean;
 };
 
+type BuildingFormState = { name: string; code: string; address: string; sortOrder: number; isActive: boolean };
+
 function toFormState(room: Room): RoomFormState {
   return {
     code: room.code,
@@ -128,6 +130,8 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
   const toast = useToast();
   const [editing, setEditing] = useState<{ id: string | null; state: RoomFormState } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Room | null>(null);
+  const [buildingEdit, setBuildingEdit] = useState<{ id: string | null; state: BuildingFormState } | null>(null);
+  const [buildingErrors, setBuildingErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -178,6 +182,32 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
     }
   };
 
+  const saveBuilding = async () => {
+    if (!buildingEdit) return;
+    setBusy(true);
+    setBuildingErrors({});
+    try {
+      const payload = { ...buildingEdit.state, address: buildingEdit.state.address || null };
+      if (buildingEdit.id) {
+        await apiFetch(`/api/buildings/${buildingEdit.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+      } else {
+        await apiFetch('/api/buildings', { method: 'POST', body: JSON.stringify(payload) });
+      }
+      toast.show(buildingEdit.id ? t('building.updated') : t('building.created'), 'success');
+      setBuildingEdit(null);
+      router.refresh();
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        setBuildingErrors(error.fieldErrors());
+        toast.show(error.message, 'error');
+      } else toast.show(t('common.unknownError'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const updateBuildingForm = (patch: Partial<BuildingFormState>) =>
+    setBuildingEdit((prev) => (prev ? { ...prev, state: { ...prev.state, ...patch } } : prev));
+
   const state = editing?.state;
   const update = (patch: Partial<RoomFormState>) =>
     setEditing((prev) => (prev ? { ...prev, state: { ...prev.state, ...patch } } : prev));
@@ -190,6 +220,53 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
           <span aria-hidden="true">＋</span> {t('room.addNew')}
         </Button>
       </div>
+
+      {/* อาคาร: ต้องมีก่อนถึงจะเลือกให้ห้องได้ — ฐานข้อมูลจริงเริ่มต้นไม่มีอาคารเลย */}
+      <section aria-labelledby="buildings-heading" className="card flex flex-col gap-3 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 id="buildings-heading" className="text-sm font-semibold text-ink-900">
+              {t('building.section')}
+            </h2>
+            <p className="text-xs text-ink-500">{t('building.sectionHint')}</p>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setBuildingEdit({ id: null, state: { name: '', code: '', address: '', sortOrder: 100, isActive: true } })}
+          >
+            <span aria-hidden="true">＋</span> {t('building.addNew')}
+          </Button>
+        </div>
+        {buildings.length === 0 ? (
+          <p className="text-sm text-ink-600">{t('building.none')}</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {buildings.map((b) => (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBuildingEdit({
+                      id: b.id,
+                      state: { name: b.name, code: b.code, address: b.address ?? '', sortOrder: b.sortOrder, isActive: b.isActive },
+                    })
+                  }
+                  className={cx(
+                    'flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium',
+                    b.isActive ? 'border-ink-200 bg-white text-ink-800 hover:bg-ink-50' : 'border-dashed border-ink-300 bg-ink-50 text-ink-500',
+                  )}
+                >
+                  {b.name}
+                  <span className="font-normal text-ink-500">{b.code}</span>
+                  {!b.isActive && <Badge>{t('building.hidden')}</Badge>}
+                  <span className="sr-only"> — {t('building.edit')}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <ul className="flex flex-col gap-2">
         {rooms.map((room) => (
@@ -266,8 +343,8 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
               </Field>
               <Field label={t('room.building')} htmlFor="r-building">
                 <Select id="r-building" value={state.buildingId} onChange={(e) => update({ buildingId: e.target.value })}>
-                  <option value="">ไม่ระบุ</option>
-                  {buildings.map((b) => (
+                  <option value="">{t('building.unspecified')}</option>
+                  {buildings.filter((b) => b.isActive || b.id === state.buildingId).map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
                     </option>
@@ -457,6 +534,44 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
                   })}
                 </div>
               </Field>
+            )}
+          </div>
+        </Overlay>
+      )}
+
+      {buildingEdit && (
+        <Overlay
+          open
+          onClose={() => setBuildingEdit(null)}
+          title={buildingEdit.id ? t('building.edit') : t('building.addNew')}
+          size="sm"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setBuildingEdit(null)} disabled={busy}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={saveBuilding} loading={busy}>
+                {t('common.save')}
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <Field label={t('building.name')} htmlFor="b-name" required error={buildingErrors.name}>
+              <Input id="b-name" value={buildingEdit.state.name} onChange={(e) => updateBuildingForm({ name: e.target.value })} required />
+            </Field>
+            <Field label={t('building.code')} htmlFor="b-code" required error={buildingErrors.code} hint={t('building.codeHint')}>
+              <Input id="b-code" value={buildingEdit.state.code} onChange={(e) => updateBuildingForm({ code: e.target.value })} required />
+            </Field>
+            <Field label={t('building.address')} htmlFor="b-address" error={buildingErrors.address}>
+              <Input id="b-address" value={buildingEdit.state.address} onChange={(e) => updateBuildingForm({ address: e.target.value })} />
+            </Field>
+            {buildingEdit.id && (
+              <Checkbox
+                label={t('building.isActive')}
+                checked={buildingEdit.state.isActive}
+                onChange={(e) => updateBuildingForm({ isActive: e.target.checked })}
+              />
             )}
           </div>
         </Overlay>

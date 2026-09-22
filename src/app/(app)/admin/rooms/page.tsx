@@ -17,7 +17,8 @@ export default async function AdminRoomsPage() {
   const [rooms, amenities, buildings, approvers] = await Promise.all([
     listRooms(ctx, { includeArchived: true, includeInactive: true }),
     listAmenities(ctx),
-    listBuildings(ctx),
+    // หน้าจัดการต้องเห็นอาคารที่ซ่อนอยู่ด้วย เพื่อเปิดกลับมาใช้ได้
+    listBuildings(ctx, { includeInactive: true }),
     // ผ่านการตรวจ room:manage แล้ว — ค้นหาผู้ที่มีสิทธิ์อนุมัติต้องอ่าน user_roles ของผู้อื่น
     withTx(ctx, async (sql) =>
       asService(sql, async () => {

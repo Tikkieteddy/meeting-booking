@@ -332,3 +332,34 @@ describe('เปิด/ปิดการใช้งานบทบาท (migr
     ).rejects.toThrow();
   });
 });
+
+describe('อาคาร (buildings) — เขียนได้เฉพาะผู้มีสิทธิ์จัดการห้อง', () => {
+  it('พนักงานธรรมดาเพิ่มอาคารไม่ได้ — ฐานข้อมูลปฏิเสธ', async () => {
+    await expect(
+      withTx(ctxFor(world, 'employee'), async (sql) => {
+        await sql.query(
+          "INSERT INTO buildings (organization_id, name, code) VALUES ($1, 'ตึกลอบใส่', 'HACK')",
+          [world.organizationId],
+        );
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('ผู้ดูแลห้องเพิ่มอาคารได้ และทุกคนที่ล็อกอินเห็นในรายการ', async () => {
+    const id = await withTx(ctxFor(world, 'roomAdmin'), async (sql) => {
+      const res = await sql.query<{ id: string }>(
+        "INSERT INTO buildings (organization_id, name, code) VALUES ($1, 'อาคารทดสอบ RLS', 'RLS-B1') RETURNING id",
+        [world.organizationId],
+      );
+      return res.rows[0]!.id;
+    });
+    const seen = await withTx(ctxFor(world, 'employee'), async (sql) => {
+      const res = await sql.query('SELECT id FROM buildings WHERE id = $1', [id]);
+      return res.rowCount;
+    });
+    expect(seen).toBe(1);
+    await withServiceTx(async (sql) => {
+      await sql.query('DELETE FROM buildings WHERE id = $1', [id]);
+    });
+  });
+});

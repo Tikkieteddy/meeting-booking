@@ -3,6 +3,7 @@ import type { DbContext, Sql } from '@/lib/db/pool';
 import { withTx } from '@/lib/db/pool';
 import { writeAudit } from '@/lib/audit';
 import type { RoomPolicy } from './booking-rules';
+import { ConflictError, ForbiddenError, NotFoundError, PG_ERROR, pgErrorCode } from './errors';
 
 export type Amenity = { code: string; nameTh: string; nameEn: string; icon: string };
 
@@ -356,12 +357,131 @@ export async function listAmenities(ctx: DbContext): Promise<Amenity[]> {
   });
 }
 
-export async function listBuildings(ctx: DbContext) {
+export type Building = {
+  id: string;
+  name: string;
+  code: string;
+  address: string | null;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type BuildingInput = {
+  name: string;
+  code: string;
+  address?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+};
+
+type BuildingRow = { id: string; name: string; code: string; address: string | null; sort_order: number; is_active: boolean };
+const toBuilding = (r: BuildingRow): Building => ({
+  id: r.id,
+  name: r.name,
+  code: r.code,
+  address: r.address,
+  sortOrder: r.sort_order,
+  isActive: r.is_active,
+});
+
+/**
+ * รายชื่ออาคาร — ค่าเริ่มต้นคืนเฉพาะที่เปิดใช้ (สำหรับ dropdown)
+ * หน้าจัดการห้องขอ includeInactive เพื่อให้เปิดกลับมาใช้ได้
+ */
+export async function listBuildings(ctx: DbContext, opts: { includeInactive?: boolean } = {}): Promise<Building[]> {
   return withTx(ctx, async (sql) => {
-    const res = await sql.query<{ id: string; name: string; code: string }>(
-      'SELECT id, name, code FROM buildings WHERE is_active ORDER BY sort_order, name',
+    const res = await sql.query<BuildingRow>(
+      `SELECT id, name, code, address, sort_order, is_active FROM buildings
+        ${opts.includeInactive ? '' : 'WHERE is_active'}
+        ORDER BY is_active DESC, sort_order, name`,
     );
-    return res.rows;
+    return res.rows.map(toBuilding);
+  });
+}
+
+type BuildingActor = { profileId: string; email: string; ipHint?: string | null; userAgent?: string | null };
+
+/**
+ * เพิ่มอาคาร — ตาราง buildings เขียนได้เฉพาะผู้มีสิทธิ์ room:manage ตาม RLS (migration 006)
+ * รหัสซ้ำ (ไม่สนตัวพิมพ์เล็ก-ใหญ่) จะถูก unique index ปฏิเสธ แปลงเป็นข้อความไทย
+ */
+export async function createBuilding(
+  ctx: DbContext,
+  organizationId: string,
+  input: BuildingInput,
+  actor: BuildingActor,
+): Promise<Building> {
+  return withTx(ctx, async (sql) => {
+    let res;
+    try {
+      res = await sql.query<BuildingRow>(
+        `INSERT INTO buildings (organization_id, name, code, address, sort_order, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, name, code, address, sort_order, is_active`,
+        [organizationId, input.name, input.code, input.address ?? null, input.sortOrder ?? 100, input.isActive ?? true],
+      );
+    } catch (error) {
+      if (pgErrorCode(error) === PG_ERROR.uniqueViolation) {
+        throw new ConflictError('มีอาคารที่ใช้รหัสนี้อยู่แล้ว กรุณาใช้รหัสอื่น');
+      }
+      throw error;
+    }
+    const building = toBuilding(res.rows[0]!);
+    await writeAudit(sql, {
+      actorProfileId: actor.profileId,
+      actorEmail: actor.email,
+      action: 'building.create',
+      resourceType: 'building',
+      resourceId: building.id,
+      after: input,
+      ipHint: actor.ipHint,
+      userAgent: actor.userAgent,
+    });
+    return building;
+  });
+}
+
+export async function updateBuilding(
+  ctx: DbContext,
+  buildingId: string,
+  input: BuildingInput,
+  actor: BuildingActor,
+): Promise<Building> {
+  return withTx(ctx, async (sql) => {
+    const before = await sql.query<BuildingRow>(
+      'SELECT id, name, code, address, sort_order, is_active FROM buildings WHERE id = $1',
+      [buildingId],
+    );
+    if (before.rowCount === 0) throw new NotFoundError('ไม่พบอาคารที่ต้องการแก้ไข');
+    let res;
+    try {
+      res = await sql.query<BuildingRow>(
+        `UPDATE buildings SET name = $2, code = $3, address = $4, sort_order = $5, is_active = $6, updated_at = now()
+          WHERE id = $1
+          RETURNING id, name, code, address, sort_order, is_active`,
+        [buildingId, input.name, input.code, input.address ?? null, input.sortOrder ?? 100, input.isActive ?? true],
+      );
+    } catch (error) {
+      if (pgErrorCode(error) === PG_ERROR.uniqueViolation) {
+        throw new ConflictError('มีอาคารที่ใช้รหัสนี้อยู่แล้ว กรุณาใช้รหัสอื่น');
+      }
+      throw error;
+    }
+    // RLS ไม่ error แต่แก้ได้ 0 แถวถ้าสิทธิ์ไม่ถึง
+    if (res.rowCount === 0) throw new ForbiddenError('ไม่มีสิทธิ์แก้ไขอาคาร');
+    const building = toBuilding(res.rows[0]!);
+    await writeAudit(sql, {
+      actorProfileId: actor.profileId,
+      actorEmail: actor.email,
+      action: 'building.update',
+      resourceType: 'building',
+      resourceId: buildingId,
+      before: toBuilding(before.rows[0]!),
+      after: input,
+      ipHint: actor.ipHint,
+      userAgent: actor.userAgent,
+    });
+    return building;
   });
 }
 

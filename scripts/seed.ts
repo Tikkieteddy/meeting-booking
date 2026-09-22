@@ -6,6 +6,7 @@
  * รัน: npm run db:seed
  */
 import { loadDotEnv } from './load-env';
+import { AMENITY_CATALOG } from '../src/lib/domain/amenity-catalog';
 loadDotEnv();
 
 import { withServiceTx, closePool } from '../src/lib/db/pool';
@@ -15,16 +16,7 @@ import { localDateTimeToUtc, toDateISO, addDaysISO } from '../src/lib/util/time'
 
 const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'TnnDemo2569!';
 
-const AMENITIES = [
-  { code: 'tv', th: 'ทีวี', en: 'TV', icon: 'tv', order: 10 },
-  { code: 'projector', th: 'โปรเจกเตอร์', en: 'Projector', icon: 'projector', order: 20 },
-  { code: 'video_conference', th: 'ประชุมทางไกล', en: 'Video conference', icon: 'video', order: 30 },
-  { code: 'whiteboard', th: 'ไวท์บอร์ด', en: 'Whiteboard', icon: 'board', order: 40 },
-  { code: 'microphone', th: 'ไมโครโฟน', en: 'Microphone', icon: 'mic', order: 50 },
-  { code: 'speaker', th: 'ลำโพง', en: 'Speaker', icon: 'speaker', order: 60 },
-  { code: 'phone', th: 'โทรศัพท์', en: 'Phone', icon: 'phone', order: 70 },
-  { code: 'accessible', th: 'รองรับผู้ใช้รถเข็น', en: 'Wheelchair accessible', icon: 'accessible', order: 80 },
-];
+// รายการสิ่งอำนวยความสะดวกย้ายไปที่ src/lib/domain/amenity-catalog.ts (แหล่งความจริงเดียว)
 
 const USERS = [
   { email: 'admin@example.com', name: 'สมชาย ผู้ดูแลระบบ', dept: 'เทคโนโลยีสารสนเทศ', role: 'super_admin' as const },
@@ -146,11 +138,11 @@ async function main() {
     }
 
     // ---------- อุปกรณ์ ----------
-    for (const a of AMENITIES) {
+    for (const a of AMENITY_CATALOG) {
       await sql.query(
         `INSERT INTO amenities (code, name_th, name_en, icon, sort_order) VALUES ($1,$2,$3,$4,$5)
          ON CONFLICT (code) DO UPDATE SET name_th = excluded.name_th, name_en = excluded.name_en`,
-        [a.code, a.th, a.en, a.icon, a.order],
+        [a.code, a.nameTh, a.nameEn, a.icon, a.sortOrder],
       );
     }
 

@@ -24,6 +24,7 @@
  * roles(code) จึงต้องมี roles ก่อนถึงจะให้บทบาทใครได้
  */
 import { readFileSync, readdirSync } from 'node:fs';
+import { AMENITY_CATALOG, amenityUpsertSql } from '../src/lib/domain/amenity-catalog';
 import { join } from 'node:path';
 import { ALL_ROLES, ROLES, PERMISSIONS, ROLE_PERMISSIONS } from '../src/lib/rbac/permissions';
 
@@ -65,6 +66,7 @@ function checkSql(migrationCount: number): string[] {
     { label: 'ตารางถูกสร้างครบ', expected: migrationCount, from: 'SELECT count(*) FROM schema_migrations' },
     { label: 'ข้อมูลองค์กร', expected: 1, from: 'SELECT count(*) FROM organizations' },
     { label: 'บทบาทผู้ใช้', expected: ALL_ROLES.length, from: 'SELECT count(*) FROM roles' },
+    { label: 'สิ่งอำนวยความสะดวก', expected: AMENITY_CATALOG.length, from: 'SELECT count(*) FROM amenities' },
     {
       label: 'สิทธิ์การใช้งาน',
       expected: Object.keys(PERMISSIONS).length,
@@ -208,6 +210,10 @@ function main() {
     );
     out.push('  ON CONFLICT (code) DO UPDATE SET description = excluded.description;');
   }
+  out.push('');
+
+  out.push('-- สิ่งอำนวยความสะดวกมาตรฐาน — ถ้าไม่มี หน้าเพิ่มห้องจะไม่มีรายการให้ติ๊ก');
+  out.push(...amenityUpsertSql());
   out.push('');
 
   out.push('-- จับคู่บทบาทกับสิทธิ์ — ล้างก่อนใส่ใหม่ เพื่อให้ตรงกับโค้ดเสมอ');
