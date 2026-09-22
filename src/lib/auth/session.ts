@@ -78,9 +78,18 @@ export function toSessionUser(profile: ProfileRow, roles: RoleAssignment[]): Ses
 export async function createSession(
   profileId: string,
   meta: { userAgent?: string | null; ipHint?: string | null } = {},
+  options: { remember?: boolean } = {},
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = newToken();
-  const expiresAt = new Date(Date.now() + env().AUTH_SESSION_HOURS * 3600_000);
+  /*
+   * ติ๊ก "จำการเข้าสู่ระบบไว้" = ยืดอายุเซสชันเป็น AUTH_REMEMBER_DAYS วัน
+   * ไม่ได้เก็บรหัสผ่านไว้ที่ใดทั้งสิ้น เก็บเฉพาะ hash ของ token เหมือนเดิม
+   * และเซสชันยังถูกเพิกถอนได้ทุกเมื่อผ่าน "ออกจากระบบทุกอุปกรณ์"
+   */
+  const lifetimeMs = options.remember
+    ? env().AUTH_REMEMBER_DAYS * 86_400_000
+    : env().AUTH_SESSION_HOURS * 3_600_000;
+  const expiresAt = new Date(Date.now() + lifetimeMs);
   await withServiceTx(async (sql) => {
     await sql.query(
       `INSERT INTO user_sessions (profile_id, token_hash, user_agent, ip_hint, expires_at)

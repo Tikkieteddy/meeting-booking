@@ -12,7 +12,7 @@ for (const role of Object.keys(ACCOUNTS) as (keyof typeof ACCOUNTS)[]) {
   setup(`ล็อกอินและเก็บ session: ${role}`, async ({ page }) => {
     const account = ACCOUNTS[role];
     await page.goto('/login');
-    await page.getByLabel('อีเมลองค์กร', { exact: true }).fill(account.email);
+    await page.getByLabel('อีเมล', { exact: true }).fill(account.email);
     await page.getByLabel('รหัสผ่าน', { exact: true }).fill(account.password);
     await page.getByRole('button', { name: 'เข้าสู่ระบบ' }).click();
 

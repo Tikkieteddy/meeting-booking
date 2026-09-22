@@ -38,8 +38,16 @@ export const en: Partial<Record<MessageKey, string>> = {
   'calendar.selectRoom': 'Select room',
 
   'auth.login': 'Sign in',
-  'auth.email': 'Work email',
+  'auth.email': 'Email',
   'auth.password': 'Password',
+  'auth.showPassword': 'Show password',
+  'auth.hidePassword': 'Hide password',
+  'auth.rememberMe': 'Keep me signed in',
+  'auth.rememberMeHint': 'Stay signed in for {days} days — do not tick this on a shared device',
+  'auth.useEmailToRegister': 'Enter your email and choose a password to create an account',
+  'auth.internalSystem': 'Internal system · sign in with your email',
+  'auth.backToLogin': 'Back to sign in',
+  'auth.haveAccount': 'Already have an account? Sign in',
 
   'status.pending': 'Pending',
   'status.confirmed': 'Confirmed',

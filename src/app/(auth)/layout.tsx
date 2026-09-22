@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </Link>
         <div className="card p-6 sm:p-8">{children}</div>
         <p className="mt-6 text-center text-xs text-ink-500">
-          ระบบภายในองค์กร · ใช้อีเมลองค์กรในการเข้าใช้งาน
+          {t('auth.internalSystem')}
         </p>
       </div>
     </main>

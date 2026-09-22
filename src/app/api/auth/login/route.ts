@@ -13,7 +13,7 @@ export const POST = withApi(async (request: Request) => {
   const meta = { ipHint: rawIp ? maskIp(rawIp) : null, userAgent: h.get('user-agent')?.slice(0, 200) ?? null };
 
   const user = await login(body.email, body.password, meta);
-  const { token, expiresAt } = await createSession(user.id, meta);
+  const { token, expiresAt } = await createSession(user.id, meta, { remember: body.remember });
   const store = await cookies();
   store.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
 

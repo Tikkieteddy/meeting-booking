@@ -1,6 +1,7 @@
 'use client';
 
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useId } from 'react';
+import { forwardRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useId } from 'react';
+import { t } from '@/lib/i18n';
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
@@ -124,6 +125,65 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 ) {
   return <input ref={ref} className={cx(CONTROL_BASE, className)} {...rest} />;
 });
+
+/**
+ * ไอคอนรูปตา — เส้นทับหมายถึง "ตอนนี้มองเห็นอยู่ กดเพื่อซ่อน"
+ * ซ่อนจาก screen reader เพราะชื่อของปุ่มมาจาก aria-label ของปุ่มแล้ว
+ */
+function EyeIcon({ crossed }: { crossed: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3.2" />
+      {crossed && <path d="M4 20 20 4" />}
+    </svg>
+  );
+}
+
+/**
+ * ช่องรหัสผ่านพร้อมปุ่มรูปตาให้กดดูสิ่งที่พิมพ์
+ *
+ * - เริ่มต้นเป็น "ซ่อน" ทุกครั้งที่เปิดหน้าใหม่ และไม่จำสถานะนี้ไว้ที่ไหนเลย
+ *   (ถ้าจำไว้ เครื่องที่ใช้ร่วมกันจะเผยรหัสผ่านของคนถัดไปโดยไม่ตั้งใจ)
+ * - ปุ่มเป็นไอคอนล้วน ไม่มีข้อความที่ตาเห็น จึงตั้งชื่อด้วย aria-label ได้
+ *   ถ้าวันหลังใส่ข้อความบนปุ่ม ต้องเลิกใช้ aria-label แล้วให้ชื่อเกิดจากเนื้อหา
+ *   ไม่อย่างนั้นจะผิดกฎ WCAG 2.5.3 (ดู CLAUDE.md ข้อ 11)
+ * - type="button" จำเป็น ไม่ใส่แล้วการกดปุ่มนี้จะส่งฟอร์มทั้งใบ
+ */
+export const PasswordInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>>(
+  function PasswordInput({ className, ...rest }, ref) {
+    const [visible, setVisible] = useState(false);
+    const buttonLabel = visible ? t('auth.hidePassword') : t('auth.showPassword');
+    return (
+      <div className="relative">
+        <input ref={ref} type={visible ? 'text' : 'password'} className={cx(CONTROL_BASE, 'pe-12', className)} {...rest} />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={buttonLabel}
+          title={buttonLabel}
+          className={cx(
+            'absolute inset-y-0 end-0 flex w-12 items-center justify-center rounded-e-xl',
+            'text-ink-500 hover:text-ink-700 focus:outline-none focus:ring-2 focus:ring-brand-500/40',
+          )}
+        >
+          <EyeIcon crossed={visible} />
+        </button>
+      </div>
+    );
+  },
+);
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
   { className, ...rest },

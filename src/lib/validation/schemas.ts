@@ -29,6 +29,8 @@ const safeText = (max: number, label: string, min = 0, minMessage?: string) =>
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'กรุณากรอกรหัสผ่าน'),
+  // ติ๊ก "จำการเข้าสู่ระบบไว้" = ขอเซสชันอายุยาว (ค่าเริ่มต้นคือไม่ติ๊ก)
+  remember: z.boolean().optional().default(false),
 });
 
 export const registerSchema = z.object({

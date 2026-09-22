@@ -25,6 +25,8 @@ const serverSchema = z.object({
 
   AUTH_SECRET: z.string().min(32, 'AUTH_SECRET ต้องยาวอย่างน้อย 32 ตัวอักษร'),
   AUTH_SESSION_HOURS: z.coerce.number().int().min(1).max(720).default(12),
+  // อายุเซสชันเมื่อผู้ใช้ติ๊ก "จำการเข้าสู่ระบบไว้" (วัน)
+  AUTH_REMEMBER_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   AUTH_ALLOW_SELF_REGISTER: bool(true),
   AUTH_ALLOWED_EMAIL_DOMAINS: z.string().default(''),
 

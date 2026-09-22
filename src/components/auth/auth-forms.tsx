@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Button, Field, Input } from '@/components/ui/primitives';
+import { Button, Checkbox, Field, Input, PasswordInput } from '@/components/ui/primitives';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
 
@@ -48,18 +48,25 @@ function FormBanner({ tone, children }: { tone: 'error' | 'success'; children: R
   );
 }
 
-export function LoginForm() {
+export function LoginForm({ rememberDays }: { rememberDays: number }) {
   const router = useRouter();
-  const { loading, formError, fieldErrors, run } = useFormSubmit<{ email: string; password: string }>(async (values) => {
-    await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(values) });
-    router.replace('/calendar');
-    router.refresh();
-  });
+  const { loading, formError, fieldErrors, run } = useFormSubmit<{ email: string; password: string; remember: boolean }>(
+    async (values) => {
+      await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(values) });
+      router.replace('/calendar');
+      router.refresh();
+    },
+  );
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    void run({ email: String(form.get('email') ?? ''), password: String(form.get('password') ?? '') });
+    void run({
+      email: String(form.get('email') ?? ''),
+      password: String(form.get('password') ?? ''),
+      // checkbox ที่ไม่ได้ติ๊กจะไม่ถูกส่งมาใน FormData เลย จึงเทียบกับ null ไม่ได้
+      remember: form.get('remember') !== null,
+    });
   };
 
   return (
@@ -81,8 +88,19 @@ export function LoginForm() {
         />
       </Field>
       <Field label={t('auth.password')} htmlFor="password" required error={fieldErrors.password}>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required aria-invalid={Boolean(fieldErrors.password)} />
+        <PasswordInput id="password" name="password" autoComplete="current-password" required aria-invalid={Boolean(fieldErrors.password)} />
       </Field>
+      {/*
+        ข้อความอธิบายวางไว้ "นอก" label แล้วผูกด้วย aria-describedby
+        เพื่อให้ชื่อของ checkbox เท่ากับข้อความที่ตาเห็นเป๊ะ ๆ (WCAG 2.5.3)
+        คนที่สั่งงานด้วยเสียงจะพูดว่า "จำการเข้าสู่ระบบไว้" แล้วต้องเจอช่องนี้
+      */}
+      <div className="flex flex-col gap-1">
+        <Checkbox id="remember" name="remember" label={t('auth.rememberMe')} aria-describedby="remember-hint" />
+        <p id="remember-hint" className="ps-7 text-xs text-ink-500">
+          {t('auth.rememberMeHint', { days: rememberDays })}
+        </p>
+      </div>
       <Button type="submit" loading={loading} size="lg">
         {t('auth.login')}
       </Button>
@@ -110,7 +128,7 @@ export function RegisterForm() {
       <div className="flex flex-col gap-4">
         <FormBanner tone="success">{t('auth.verifyEmailSent')}</FormBanner>
         <Link href="/login" className="text-sm text-brand-700 underline-offset-2 hover:underline">
-          กลับไปหน้าเข้าสู่ระบบ
+          {t('auth.backToLogin')}
         </Link>
       </div>
     );
@@ -131,7 +149,7 @@ export function RegisterForm() {
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       <div>
         <h1 className="text-xl font-semibold text-ink-900">{t('auth.register')}</h1>
-        <p className="mt-1 text-sm text-ink-500">ใช้อีเมลองค์กรเพื่อสร้างบัญชี</p>
+        <p className="mt-1 text-sm text-ink-500">{t('auth.useEmailToRegister')}</p>
       </div>
       {formError && <FormBanner tone="error">{formError}</FormBanner>}
       <Field label={t('auth.fullName')} htmlFor="fullName" required error={fieldErrors.fullName}>
@@ -144,13 +162,13 @@ export function RegisterForm() {
         <Input id="department" name="department" autoComplete="organization" />
       </Field>
       <Field label={t('auth.password')} htmlFor="password" required error={fieldErrors.password} hint={t('auth.passwordRule')}>
-        <Input id="password" name="password" type="password" required autoComplete="new-password" />
+        <PasswordInput id="password" name="password" required autoComplete="new-password" />
       </Field>
       <Button type="submit" loading={loading} size="lg">
         {t('auth.register')}
       </Button>
       <Link href="/login" className="text-sm text-brand-700 underline-offset-2 hover:underline">
-        มีบัญชีอยู่แล้ว เข้าสู่ระบบ
+        {t('auth.haveAccount')}
       </Link>
     </form>
   );
@@ -183,7 +201,7 @@ export function ForgotPasswordForm() {
         {t('auth.sendResetLink')}
       </Button>
       <Link href="/login" className="text-sm text-brand-700 underline-offset-2 hover:underline">
-        กลับไปหน้าเข้าสู่ระบบ
+        {t('auth.backToLogin')}
       </Link>
     </form>
   );
@@ -220,10 +238,10 @@ export function ResetPasswordForm({ token, mode = 'reset' }: { token: string; mo
       {done && <FormBanner tone="success">ตั้งรหัสผ่านใหม่สำเร็จ กำลังพาไปหน้าเข้าสู่ระบบ</FormBanner>}
       {formError && <FormBanner tone="error">{formError}</FormBanner>}
       <Field label={t('auth.password')} htmlFor="password" required error={fieldErrors.password} hint={t('auth.passwordRule')}>
-        <Input id="password" name="password" type="password" required autoComplete="new-password" />
+        <PasswordInput id="password" name="password" required autoComplete="new-password" />
       </Field>
       <Field label={t('auth.passwordConfirm')} htmlFor="confirm" required error={fieldErrors.confirm}>
-        <Input id="confirm" name="confirm" type="password" required autoComplete="new-password" />
+        <PasswordInput id="confirm" name="confirm" required autoComplete="new-password" />
       </Field>
       <Button type="submit" loading={loading} size="lg">
         {t('common.save')}
