@@ -25,7 +25,8 @@
     "test:e2e": "playwright test",
     "lighthouse": "lighthouse --only-categories=performance,accessibility,best-practices --chrome-flags=\"--headless=new\" --output=html --output-path=./lighthouse-report.html",
     "audit:prod": "npm audit --omit=dev",
-    "verify": "npm run typecheck && npm run lint && npm run test:unit"
+    "verify": "npm run typecheck && npm run lint && npm run test:unit",
+    "db:upgrade-sql": "tsx scripts/print-upgrade-sql.ts"
   },
   "dependencies": {
     "next": "15.5.25",

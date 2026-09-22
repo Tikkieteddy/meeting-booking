@@ -48,6 +48,7 @@ npm run test:integration  # ต้องมี TEST_DATABASE_URL (ชื่อ�
 npm run test:e2e          # Playwright — จะล้างและ seed ฐานข้อมูลให้ก่อนอัตโนมัติ
 npm run db:migrate        # รัน migration ที่ค้าง
 npm run db:reset          # ย้อนทั้งหมด รันใหม่ แล้ว seed (ห้ามใช้บน production)
+npm run db:upgrade-sql -- 008   # พิมพ์ SQL ของ migration ที่ระบุ ไว้วางใน Neon SQL Editor (บันทึกลง db/upgrades/)
 ```
 
 **บนเครื่องที่ยังไม่มีฐานข้อมูล:** `createdb tnn_meeting && createdb tnn_meeting_test`
