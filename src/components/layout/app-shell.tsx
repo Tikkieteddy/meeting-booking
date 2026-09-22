@@ -130,7 +130,7 @@ export function AppShell({
             >
               <span aria-hidden="true">🔔</span>
               {unreadCount > 0 && (
-                <span className="absolute end-1.5 top-1.5 flex min-w-4 justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white">
+                <span className="absolute end-1.5 top-1.5 flex min-w-4 justify-center rounded-full bg-brand-500 px-1 text-[0.625rem] font-bold text-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -175,7 +175,7 @@ export function AppShell({
                   <MenuLink href="/help" icon="❓" label={t('nav.help')} />
                   {visibleAdmin.length > 0 && (
                     <>
-                      <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                      <p className="px-4 pb-1 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-400">
                         {t('nav.admin')}
                       </p>
                       {visibleAdmin.map((item) => (
@@ -216,7 +216,7 @@ export function AppShell({
             data-tour={item.href === '/bookings' ? 'mybookings' : undefined}
             aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
             className={cx(
-              'flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium',
+              'flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.6875rem] font-medium',
               // brand-600 เป็นตัวอักษรบนพื้นขาวได้ 4.36:1 ไม่ถึงเกณฑ์
               // brand-700 ที่มีอยู่ในชุดสีเดิมได้ 6.1:1 — ยังเป็นส้มโทนเดียวกัน
               pathname.startsWith(item.href) ? 'text-brand-700' : 'text-ink-500',

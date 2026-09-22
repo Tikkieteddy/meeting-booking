@@ -55,15 +55,15 @@ export function BookingCard({
         compact && 'py-0.5',
       )}
     >
-      <span className="flex items-center gap-1 text-[11px] font-semibold leading-tight">
+      <span className="flex items-center gap-1 text-[0.6875rem] font-semibold leading-tight">
         <span aria-hidden="true">{symbol}</span>
         <span className="tabular-nums">{timeRange}</span>
-        {booking.isMine && <span className="rounded bg-brand-500/15 px-1 text-[10px]">ของฉัน</span>}
+        {booking.isMine && <span className="rounded bg-brand-500/15 px-1 text-[0.625rem]">ของฉัน</span>}
       </span>
       <span className="truncate text-xs font-medium leading-snug">{booking.title}</span>
-      {showBooker && <span className="truncate text-[11px] leading-tight opacity-80">{bookerLine}</span>}
-      {showRoomLine && <span className="truncate text-[11px] leading-tight opacity-70">{roomName}</span>}
-      {!booking.canSeeDetails && <span className="text-[11px] opacity-70">{t('booking.privateHidden')}</span>}
+      {showBooker && <span className="truncate text-[0.6875rem] leading-tight opacity-80">{bookerLine}</span>}
+      {showRoomLine && <span className="truncate text-[0.6875rem] leading-tight opacity-70">{roomName}</span>}
+      {!booking.canSeeDetails && <span className="text-[0.6875rem] opacity-70">{t('booking.privateHidden')}</span>}
       {/*
         ไม่ใช้ aria-label ที่นี่โดยเจตนา
         กฎ WCAG 2.5.3 (Label in Name) กำหนดว่าชื่อที่ screen reader อ่าน

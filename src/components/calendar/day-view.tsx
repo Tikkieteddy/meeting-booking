@@ -76,7 +76,7 @@ export function DayView({
           {columns.map((room) => (
             <div key={room.id} className="min-w-32 flex-1 border-s border-ink-100 px-2 py-2">
               <p className="truncate text-xs font-semibold text-ink-800">{room.name}</p>
-              <p className="truncate text-[11px] text-ink-500">
+              <p className="truncate text-[0.6875rem] text-ink-500">
                 {room.capacity} {t('common.people')}
                 {room.floor ? ` · ชั้น ${room.floor}` : ''}
               </p>
@@ -92,7 +92,7 @@ export function DayView({
             {hours.map((hour) => (
               <div
                 key={hour.minutes}
-                className="absolute -translate-y-1/2 pe-2 text-end text-[11px] tabular-nums text-ink-500"
+                className="absolute -translate-y-1/2 pe-2 text-end text-[0.6875rem] tabular-nums text-ink-500"
                 style={{ top: ((hour.minutes - window.openMinutes) / 60) * HOUR_PX, width: '100%' }}
               >
                 {hour.label}
@@ -167,7 +167,7 @@ export function DayView({
                   return (
                     <div
                       key={`${closure.roomId}-${closure.startsAt}`}
-                      className="absolute inset-x-1 z-10 rounded-lg border border-slate-300 bg-[repeating-linear-gradient(45deg,#e2e8f0,#e2e8f0_6px,#f1f5f9_6px,#f1f5f9_12px)] px-2 py-1 text-[11px] font-medium text-slate-700"
+                      className="absolute inset-x-1 z-10 rounded-lg border border-slate-300 bg-[repeating-linear-gradient(45deg,#e2e8f0,#e2e8f0_6px,#f1f5f9_6px,#f1f5f9_12px)] px-2 py-1 text-[0.6875rem] font-medium text-slate-700"
                       style={{ top: geo.top, height: geo.height }}
                       title={closure.reason}
                     >
@@ -212,7 +212,7 @@ export function DayView({
               aria-hidden="true"
             >
               <span // red-500 กับตัวอักษรขาวได้แค่ 3.81:1 — ใช้ red-600 ที่ได้ 4.77:1 ผ่านเกณฑ์
-              className="ms-1 rounded-md bg-red-600 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white">
+              className="ms-1 rounded-md bg-red-600 px-1.5 py-0.5 text-[0.625rem] font-bold tabular-nums text-white">
                 {minutesToHhmm(nowMinutes)}
               </span>
               <span data-tour="nowline" className="now-line h-0.5 flex-1" />

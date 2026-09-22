@@ -96,13 +96,13 @@ export default async function AdminReportsPage({
               const max = Math.max(...summary.byDay.map((d) => d.bookings), 1);
               return (
                 <div key={day.dateISO} className="flex min-w-6 flex-1 flex-col items-center gap-1">
-                  <span className="text-[10px] tabular-nums text-ink-500">{day.bookings || ''}</span>
+                  <span className="text-[0.625rem] tabular-nums text-ink-500">{day.bookings || ''}</span>
                   <span
                     className="w-full rounded-t bg-brand-400"
                     style={{ height: `${Math.round((day.bookings / max) * 100)}%`, minHeight: day.bookings ? 4 : 0 }}
                     title={`${day.dateISO}: ${day.bookings} รายการ`}
                   />
-                  <span className="text-[9px] text-ink-400">{day.dateISO.slice(8)}</span>
+                  <span className="text-[0.5625rem] text-ink-400">{day.dateISO.slice(8)}</span>
                 </div>
               );
             })}

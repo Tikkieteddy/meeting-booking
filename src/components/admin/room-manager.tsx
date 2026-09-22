@@ -326,7 +326,7 @@ export function RoomManager({ rooms, amenities, buildings, approvers }: Props) {
                 {room.policy.slotStepMinutes} นาที
               </p>
               {room.amenities.length > 0 && (
-                <p className="mt-1 flex flex-wrap gap-1 text-[11px] text-ink-600">
+                <p className="mt-1 flex flex-wrap gap-1 text-[0.6875rem] text-ink-600">
                   {room.amenities.map((a) => (
                     <span key={a.code} className="rounded bg-ink-100 px-1.5 py-0.5">
                       {a.nameTh}

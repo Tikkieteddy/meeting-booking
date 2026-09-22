@@ -50,7 +50,7 @@ export function MonthView({
     <div className="flex h-full flex-col overflow-hidden">
       <div className="grid shrink-0 grid-cols-7 border-b border-ink-200 bg-white">
         {weekdayHeader.map((wd) => (
-          <div key={wd} className="px-1 py-2 text-center text-[11px] font-semibold text-ink-500">
+          <div key={wd} className="px-1 py-2 text-center text-[0.6875rem] font-semibold text-ink-500">
             <span className="hidden sm:inline">{thaiWeekday(wd)}</span>
             <span className="sm:hidden">{thaiWeekday(wd, true)}</span>
           </div>
@@ -91,7 +91,7 @@ export function MonthView({
                   {dayNumber}
                 </span>
                 {day.holidayName && (
-                  <span aria-hidden="true" className="text-[10px]">
+                  <span aria-hidden="true" className="text-[0.625rem]">
                     🎌
                   </span>
                 )}
@@ -99,12 +99,12 @@ export function MonthView({
 
               {/* สถานะวัน: เต็ม = ป้ายแดง "ไม่ว่าง" (พื้นแดงเข้ม+ตัวขาว ผ่าน WCAG AA และมีสัญลักษณ์กำกับ) */}
               {busyDay ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white">
                   <span aria-hidden="true">●</span>
                   {t('calendar.busyDay')}
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-[10px] font-medium">
+                <span className="flex items-center gap-1 text-[0.625rem] font-medium">
                   <span aria-hidden="true" style={{ color: meta.color }}>
                     {meta.symbol}
                   </span>
@@ -118,7 +118,7 @@ export function MonthView({
                   {ranges.slice(0, MAX_RANGES).map((r, i) => (
                     <span
                       key={i}
-                      className={cx('w-full truncate text-[10px] tabular-nums', busyDay ? 'text-red-700' : 'text-ink-700')}
+                      className={cx('w-full truncate text-[0.625rem] tabular-nums', busyDay ? 'text-red-700' : 'text-ink-700')}
                       title={r.title ?? undefined}
                     >
                       {r.label}
@@ -126,7 +126,7 @@ export function MonthView({
                     </span>
                   ))}
                   {ranges.length > MAX_RANGES && (
-                    <span className="text-[10px] text-ink-500">+{ranges.length - MAX_RANGES}</span>
+                    <span className="text-[0.625rem] text-ink-500">+{ranges.length - MAX_RANGES}</span>
                   )}
                 </span>
               )}
@@ -136,7 +136,7 @@ export function MonthView({
       </div>
 
       {/* คำอธิบายจุดสี */}
-      <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-ink-200 bg-white px-3 py-2 text-[11px] text-ink-600">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-ink-200 bg-white px-3 py-2 text-[0.6875rem] text-ink-600">
         {(['free', 'partial', 'almost', 'full'] as const).map((level) => (
           <span key={level} className="flex items-center gap-1">
             <span aria-hidden="true" style={{ color: OCCUPANCY_META[level].color }}>

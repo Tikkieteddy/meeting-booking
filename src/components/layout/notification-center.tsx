@@ -78,7 +78,7 @@ export function NotificationCenter({ initial }: { initial: InAppNotification[] }
                     {item.title}
                   </p>
                   {item.body && <p className="mt-0.5 whitespace-pre-line text-xs text-ink-600">{item.body}</p>}
-                  <p className="mt-1 text-[11px] text-ink-400">
+                  <p className="mt-1 text-[0.6875rem] text-ink-400">
                     {formatThaiDateShort(item.createdAt.slice(0, 10))} {toTimeHHmm(new Date(item.createdAt))}
                     {!item.readAt && <span className="ms-2 text-brand-600">ยังไม่อ่าน</span>}
                   </p>

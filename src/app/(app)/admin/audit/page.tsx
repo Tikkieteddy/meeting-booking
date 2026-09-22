@@ -103,15 +103,15 @@ export default async function AdminAuditPage({
                   {log.resourceId ? ` · ${log.resourceId.slice(0, 8)}…` : ''}
                   {Boolean(log.before ?? log.after) && (
                     <details className="mt-1">
-                      <summary className="cursor-pointer text-[11px] text-brand-700">ดูค่าเดิม/ค่าใหม่</summary>
-                      <pre className="mt-1 max-w-md overflow-x-auto rounded bg-ink-50 p-2 text-[10px] leading-relaxed">
+                      <summary className="cursor-pointer text-[0.6875rem] text-brand-700">ดูค่าเดิม/ค่าใหม่</summary>
+                      <pre className="mt-1 max-w-md overflow-x-auto rounded bg-ink-50 p-2 text-[0.625rem] leading-relaxed">
                         {String(JSON.stringify({ before: log.before, after: log.after }, null, 2))}
                       </pre>
                     </details>
                   )}
                 </td>
                 <td className="px-3 py-2 text-xs text-ink-500">{log.ipHint ?? '-'}</td>
-                <td className="px-3 py-2 text-[10px] text-ink-400">{log.correlationId?.slice(0, 8) ?? '-'}</td>
+                <td className="px-3 py-2 text-[0.625rem] text-ink-400">{log.correlationId?.slice(0, 8) ?? '-'}</td>
               </tr>
             ))}
           </tbody>

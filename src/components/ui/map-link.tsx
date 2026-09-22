@@ -15,7 +15,7 @@ export function MapLink({ href, className, compact }: { href: string | null | un
       rel="noopener noreferrer"
       className={cx(
         'inline-flex items-center gap-1 rounded-full border border-ink-200 bg-white text-brand-700 hover:bg-brand-50',
-        compact ? 'px-2 py-0.5 text-[11px] font-medium' : 'px-2.5 py-1 text-xs font-medium',
+        compact ? 'px-2 py-0.5 text-[0.6875rem] font-medium' : 'px-2.5 py-1 text-xs font-medium',
         className,
       )}
     >

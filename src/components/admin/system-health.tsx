@@ -84,7 +84,7 @@ export function SystemHealthPanel({ health, providers }: { health: SystemHealth;
                     {failure.eventType} · {failure.channel}
                   </p>
                   <p className="truncate text-xs text-red-700">{failure.lastError ?? 'ไม่ทราบสาเหตุ'}</p>
-                  <p className="text-[11px] text-ink-500">
+                  <p className="text-[0.6875rem] text-ink-500">
                     ลองแล้ว {failure.attempts} ครั้ง · อัปเดต {formatThaiDateShort(failure.updatedAt.slice(0, 10))}{' '}
                     {toTimeHHmm(new Date(failure.updatedAt))}
                   </p>

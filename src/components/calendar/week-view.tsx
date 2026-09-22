@@ -73,14 +73,14 @@ export function WeekView({
                     isToday && 'bg-brand-50',
                   )}
                 >
-                  <p className={cx('text-[11px] font-medium', isToday ? 'text-brand-700' : 'text-ink-500')}>
+                  <p className={cx('text-[0.6875rem] font-medium', isToday ? 'text-brand-700' : 'text-ink-500')}>
                     {thaiWeekday(weekdayOfISO(dateISO), true)}
                   </p>
                   <p className={cx('text-sm font-semibold tabular-nums', isToday ? 'text-brand-700' : 'text-ink-800')}>
                     {formatThaiDateShort(dateISO)}
                   </p>
                   {holiday && (
-                    <p className="truncate text-[10px] text-red-600" title={holiday}>
+                    <p className="truncate text-[0.625rem] text-red-600" title={holiday}>
                       🎌 {t('calendar.holiday')}
                     </p>
                   )}
@@ -94,7 +94,7 @@ export function WeekView({
               {hours.map((hour) => (
                 <div
                   key={hour.minutes}
-                  className="absolute -translate-y-1/2 pe-2 text-end text-[11px] tabular-nums text-ink-500"
+                  className="absolute -translate-y-1/2 pe-2 text-end text-[0.6875rem] tabular-nums text-ink-500"
                   style={{ top: ((hour.minutes - window.openMinutes) / 60) * HOUR_PX, width: '100%' }}
                 >
                   {hour.label}
@@ -154,7 +154,7 @@ export function WeekView({
                     return (
                       <div
                         key={`${closure.roomId}-${closure.startsAt}`}
-                        className="absolute inset-x-0.5 z-10 rounded border border-slate-300 bg-slate-100 px-1 text-[10px] text-slate-700"
+                        className="absolute inset-x-0.5 z-10 rounded border border-slate-300 bg-slate-100 px-1 text-[0.625rem] text-slate-700"
                         style={{ top: geo.top, height: geo.height }}
                         title={closure.reason}
                       >
