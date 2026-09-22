@@ -53,8 +53,9 @@
   --radius-card: 1rem;
   --radius-pill: 999px;
 
-  /* ตัวอักษร: ใช้ฟอนต์ระบบที่รองรับไทย ไม่พึ่ง CDN ภายนอก (CSP เข้ม) */
-  --font-sans: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Sarabun', 'Leelawadee UI',
+  /* ตัวอักษร: ฟอนต์ประจำองค์กร (โหลดใน app/layout.tsx เสิร์ฟจากเว็บเราเอง ไม่พึ่ง CDN)
+     ถ้ายังโหลดไม่เสร็จหรือโหลดไม่ได้ ถอยไปฟอนต์ระบบที่รองรับไทยตามลำดับ */
+  --font-sans: var(--font-brand), 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Sarabun', 'Leelawadee UI',
     system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   /* ความสูงแถวเวลาใน Calendar (1 ชั่วโมง) */

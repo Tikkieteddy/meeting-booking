@@ -1,8 +1,26 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import { ToastProvider } from '@/components/ui/toast';
 import { RegisterServiceWorker } from '@/components/pwa/register-service-worker';
 import { t } from '@/lib/i18n';
 import './globals.css';
+
+/*
+ * ฟอนต์ประจำองค์กร (ไฟล์ที่ผู้ใช้ส่งมา: TBold.ttf → แปลงเป็น woff2 ให้เล็กลง)
+ * - เสิร์ฟจากเว็บเราเอง ไม่พึ่ง CDN ภายนอก จึงผ่าน CSP font-src 'self'
+ * - ไฟล์นี้มีน้ำหนักเดียว (ค่าในไฟล์ระบุ 400 = ปกติ แม้ชื่อจะลงท้ายว่า Bold)
+ *   ตัวหนาบนเว็บจึงเป็นตัวหนาที่เบราว์เซอร์จำลองให้ ถ้าได้ไฟล์น้ำหนักหนาจริงมา
+ *   ให้เพิ่มเป็นรายการที่สองใน src พร้อม weight: '700'
+ * - display: 'swap' = แสดงข้อความด้วยฟอนต์สำรองทันที แล้วสลับเมื่อโหลดเสร็จ
+ *   ไม่ปล่อยให้หน้าเว็บว่างรอฟอนต์ (สำคัญบนเน็ตมือถือ)
+ */
+const brandFont = localFont({
+  src: [{ path: './fonts/true-bold.woff2', weight: '400', style: 'normal' }],
+  display: 'swap',
+  variable: '--font-brand',
+  fallback: ['IBM Plex Sans Thai', 'Noto Sans Thai', 'Sarabun', 'Leelawadee UI', 'system-ui', 'sans-serif'],
+  preload: true,
+});
 
 export const metadata: Metadata = {
   title: {
@@ -42,7 +60,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th">
+    <html lang="th" className={brandFont.variable}>
       <body className="min-h-dvh bg-ink-50 text-ink-800 antialiased">
         <ToastProvider>{children}</ToastProvider>
         <RegisterServiceWorker />
