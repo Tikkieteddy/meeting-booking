@@ -33,14 +33,15 @@ export function MonthView({
    * ช่วงเวลาที่ถูกจองของแต่ละวัน เรียงตามเวลา — ผู้ใช้ขอให้เห็น "ช่วงเวลา" ในช่องวัน
    * ไม่ใช่แค่จำนวน จะได้กะได้ทันทีว่าวันนั้นเหลือช่วงไหนว่าง
    */
-  const rangesByDay = new Map<string, { label: string; title: string | null }[]>();
+  const rangesByDay = new Map<string, { label: string; who: string | null }[]>();
   for (const b of [...bookings].sort((a, z) => a.startsAt.localeCompare(z.startsAt))) {
     if (b.status === 'cancelled' || b.status === 'rejected') continue;
     const dateISO = toDateISO(new Date(b.startsAt), TZ);
     const list = rangesByDay.get(dateISO) ?? [];
+    // หลังเวลาแสดง "ชื่อผู้จอง" (ไม่ใช่ชื่อประชุม) ตามที่ผู้ใช้ขอ
     list.push({
       label: formatTimeRange(new Date(b.startsAt), new Date(b.endsAt), TZ),
-      title: b.canSeeDetails ? b.title : null,
+      who: b.bookerName,
     });
     rangesByDay.set(dateISO, list);
   }
@@ -97,37 +98,41 @@ export function MonthView({
                 )}
               </span>
 
-              {/* สถานะวัน: เต็ม = ป้ายแดง "ไม่ว่าง" (พื้นแดงเข้ม+ตัวขาว ผ่าน WCAG AA และมีสัญลักษณ์กำกับ) */}
-              {busyDay ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white">
-                  <span aria-hidden="true">●</span>
-                  {t('calendar.busyDay')}
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[0.625rem] font-medium">
-                  <span aria-hidden="true" style={{ color: meta.color }}>
-                    {meta.symbol}
-                  </span>
-                  <span className={outside ? 'text-ink-400' : 'text-ink-600'}>{t(meta.labelKey)}</span>
-                </span>
-              )}
-
-              {/* ช่วงเวลาที่ถูกจองในวันนั้น (สูงสุด 3 ช่วง ที่เหลือบอกเป็น +N) */}
+              {/*
+                ช่วงเวลาที่ถูกจอง + ชื่อผู้จอง — บรรทัดเดียวต่อรายการ ห้ามปัดลง
+                ชื่อยาวเกินให้ตัดท้ายเป็น … (truncate = nowrap + ซ่อนส่วนเกิน + …)
+                สูงสุด 3 รายการ ที่เหลือบอกเป็น +N
+              */}
               {ranges.length > 0 && (
-                <span className="flex w-full flex-col gap-0.5">
+                <span className="flex w-full min-w-0 flex-col gap-0.5">
                   {ranges.slice(0, MAX_RANGES).map((r, i) => (
                     <span
                       key={i}
-                      className={cx('w-full truncate text-[0.625rem] tabular-nums', busyDay ? 'text-red-700' : 'text-ink-700')}
-                      title={r.title ?? undefined}
+                      className={cx('block w-full min-w-0 truncate text-[0.625rem] tabular-nums', busyDay ? 'text-red-700' : 'text-ink-700')}
+                      title={r.who ? `${r.label} ${r.who}` : r.label}
                     >
                       {r.label}
-                      {r.title && <span className="text-ink-500"> {r.title}</span>}
+                      {r.who && <span className="text-ink-500"> {r.who}</span>}
                     </span>
                   ))}
                   {ranges.length > MAX_RANGES && (
                     <span className="text-[0.625rem] text-ink-500">+{ranges.length - MAX_RANGES}</span>
                   )}
+                </span>
+              )}
+
+              {/* สถานะวันอยู่ท้ายช่อง (ผู้ใช้ขอ): เต็ม = ป้ายแดง "ไม่ว่าง" (พื้นแดงเข้ม+ตัวขาว ผ่าน WCAG AA มีสัญลักษณ์กำกับ) */}
+              {busyDay ? (
+                <span className="mt-auto inline-flex items-center gap-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white">
+                  <span aria-hidden="true">●</span>
+                  {t('calendar.busyDay')}
+                </span>
+              ) : (
+                <span className="mt-auto flex items-center gap-1 text-[0.625rem] font-medium">
+                  <span aria-hidden="true" style={{ color: meta.color }}>
+                    {meta.symbol}
+                  </span>
+                  <span className={outside ? 'text-ink-400' : 'text-ink-600'}>{t(meta.labelKey)}</span>
                 </span>
               )}
             </button>
