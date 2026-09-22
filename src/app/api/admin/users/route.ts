@@ -5,6 +5,8 @@ import { currentActor } from "@/lib/api/actor";
 import { requirePermission } from "@/lib/auth/current-user";
 import { auditStandalone } from "@/lib/audit";
 import { apiOk, withApi } from "@/lib/api/respond";
+import { listEnabledRoleCodes } from "@/lib/domain/roles-admin";
+import { DomainError } from "@/lib/domain/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +55,18 @@ export const GET = withApi(async (request: Request) => {
 export const POST = withApi(async (request: Request) => {
   const admin = await requirePermission("user:manage");
   const input = inviteUserSchema.parse(await request.json());
+
+  // บทบาทที่ถูกปิดการใช้งานไว้ ห้ามใช้เชิญคนใหม่ (ดู migration 008)
+  const { ctx } = await currentActor();
+  const enabled = await listEnabledRoleCodes(ctx);
+  if (!enabled.includes(input.roleCode)) {
+    throw new DomainError(
+      "บทบาทที่เลือกถูกปิดการใช้งานไว้ กรุณาเปิดใช้งานที่หน้าบทบาทและสิทธิ์ก่อน",
+      "role_disabled",
+      409,
+    );
+  }
+
   const result = await inviteUser({ ...input, invitedBy: admin.id });
   await auditStandalone({
     actorProfileId: admin.id,

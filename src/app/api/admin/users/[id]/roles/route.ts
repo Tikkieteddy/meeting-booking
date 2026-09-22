@@ -68,6 +68,27 @@ export const PUT = withApi(
           }
         }
 
+        /*
+         * บทบาทที่ผู้ดูแลระบบ "ปิดการใช้งาน" ไว้ (migration 008) จะมอบให้คนใหม่ไม่ได้
+         * แต่คนที่ถืออยู่แล้วให้คงไว้ได้ ไม่อย่างนั้นการปิดบทบาทจะกลายเป็นการ
+         * ตัดสิทธิ์ย้อนหลังโดยที่ผู้ดูแลระบบไม่ได้สั่ง
+         */
+        const enabledRows = await sql.query<{ code: string }>(
+          "SELECT code FROM roles WHERE enabled",
+        );
+        const enabled = new Set(enabledRows.rows.map((r) => r.code));
+        const held = new Set(before.rows.map((r) => r.role_code));
+        const blocked = body.roles
+          .map((r) => r.roleCode)
+          .filter((code) => !enabled.has(code) && !held.has(code));
+        if (blocked.length > 0) {
+          throw new DomainError(
+            "บทบาทที่เลือกถูกปิดการใช้งานไว้ กรุณาเปิดใช้งานที่หน้าบทบาทและสิทธิ์ก่อน",
+            "role_disabled",
+            409,
+          );
+        }
+
         await sql.query("DELETE FROM user_roles WHERE profile_id = $1", [id]);
         for (const role of body.roles) {
           if (!ALL_ROLES.includes(role.roleCode)) continue;

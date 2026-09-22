@@ -28,7 +28,16 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 /** จัดการผู้ใช้และสิทธิ์ (บรีฟข้อ 8) */
-export function UserManager({ users, canManageRoles }: { users: AdminUser[]; canManageRoles: boolean }) {
+export function UserManager({
+  users,
+  canManageRoles,
+  enabledRoles,
+}: {
+  users: AdminUser[];
+  canManageRoles: boolean;
+  /** บทบาทที่ยังเปิดใช้งาน — บทบาทที่ปิดไว้จะไม่โผล่ในรายการให้เลือก */
+  enabledRoles: RoleCode[];
+}) {
   const router = useRouter();
   const toast = useToast();
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -192,7 +201,7 @@ export function UserManager({ users, canManageRoles }: { users: AdminUser[]; can
           </Field>
           <Field label="สิทธิ์เริ่มต้น" htmlFor="i-role">
             <Select id="i-role" name="roleCode" defaultValue="employee">
-              {ALL_ROLES.map((role) => (
+              {enabledRoles.map((role) => (
                 <option key={role} value={role}>
                   {ROLES[role].nameTh}
                 </option>
@@ -225,7 +234,11 @@ export function UserManager({ users, canManageRoles }: { users: AdminUser[]; can
           <div className="flex flex-col gap-4">
             <fieldset className="flex flex-col gap-2">
               <legend className="text-sm font-medium text-ink-700">เลือกสิทธิ์ (เลือกได้หลายอย่าง)</legend>
-              {ALL_ROLES.map((role) => (
+              {/*
+                แสดงบทบาทที่เปิดใช้งาน บวกกับบทบาทที่คนนี้ถืออยู่แล้วแม้จะถูกปิดไว้
+                ถ้าไม่แสดงตัวที่ถืออยู่ การกดบันทึกจะเป็นการถอดสิทธิ์เขาโดยไม่ตั้งใจ
+              */}
+              {ALL_ROLES.filter((role) => enabledRoles.includes(role) || roles.includes(role)).map((role) => (
                 <label key={role} className="flex items-start gap-2.5 text-sm">
                   <input
                     type="checkbox"
@@ -237,7 +250,12 @@ export function UserManager({ users, canManageRoles }: { users: AdminUser[]; can
                   />
                   <span>
                     <span className="font-medium text-ink-800">{ROLES[role].nameTh}</span>
-                    <span className="block text-xs text-ink-500">{t(`role.${role}` as 'role.employee')}</span>
+                    {!enabledRoles.includes(role) && (
+                      <span className="ms-1.5 align-middle">
+                        <Badge tone="warn">{t('role.disabledNow')}</Badge>
+                      </span>
+                    )}
+                    <span className="block text-xs text-ink-500">{t(`role.desc.${role}` as 'role.desc.employee')}</span>
                   </span>
                 </label>
               ))}

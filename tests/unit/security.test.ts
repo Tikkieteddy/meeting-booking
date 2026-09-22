@@ -6,7 +6,10 @@ import { redact } from '@/lib/util/logger';
 import { sanitize } from '@/lib/audit';
 import {
   ALL_PERMISSIONS,
+  ALL_ROLES,
+  CORE_ROLES,
   ROLE_PERMISSIONS,
+  canDisableRole,
   canManageRoom,
   hasPermission,
   highestRole,
@@ -141,5 +144,19 @@ describe('RBAC', () => {
     // พนักงานทั่วไปไม่มีสิทธิ์ room:manage แม้ระบุ scope
     const employeeScoped = [{ roleCode: 'employee' as const, scopeType: 'room' as const, scopeId: 'room-1' }];
     expect(canManageRoom(employeeScoped, room)).toBe(false);
+  });
+});
+
+describe('บทบาทหลักของระบบต้องปิดไม่ได้', () => {
+  it('super_admin และ employee ปิดไม่ได้ ที่เหลือปิดได้', () => {
+    expect(canDisableRole('super_admin')).toBe(false);
+    expect(canDisableRole('employee')).toBe(false);
+    expect(canDisableRole('approver')).toBe(true);
+    expect(canDisableRole('room_admin')).toBe(true);
+    expect(canDisableRole('viewer')).toBe(true);
+  });
+
+  it('CORE_ROLES ต้องเป็นสับเซตของ role ที่มีอยู่จริง', () => {
+    for (const code of CORE_ROLES) expect(ALL_ROLES).toContain(code);
   });
 });

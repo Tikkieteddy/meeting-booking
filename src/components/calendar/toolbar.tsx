@@ -64,7 +64,7 @@ export function CalendarToolbar({
     <div className="shrink-0 border-t border-ink-100 bg-white">
       {/* แถวที่ 1: วันที่ · ห้อง · ค้นหา */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 sm:px-5">
-        <div className="flex items-center gap-1">
+        <div data-tour="datenav" className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => shift(-1)}
@@ -119,6 +119,7 @@ export function CalendarToolbar({
             {t('calendar.selectRoom')}
           </label>
           <select
+            data-tour="roompicker"
             id="room-picker"
             value={selectedRoomId ?? ''}
             onChange={(event) => onRoomChange(event.target.value || null)}
@@ -137,7 +138,7 @@ export function CalendarToolbar({
           <label className="sr-only" htmlFor="calendar-search">
             {t('common.search')}
           </label>
-          <div className="relative flex-1 sm:w-72">
+          <div data-tour="search" className="relative flex-1 sm:w-72">
             <input
               id="calendar-search"
               type="search"
@@ -159,7 +160,7 @@ export function CalendarToolbar({
 
       {/* แถวที่ 2: สวิตช์มุมมอง · ปุ่มจอง */}
       <div className="flex items-center gap-2 border-t border-ink-100 px-3 py-2 sm:px-5">
-        <div role="tablist" aria-label={t('view.switchLabel')} className="flex rounded-xl bg-ink-100 p-1">
+        <div data-tour="views" role="tablist" aria-label={t('view.switchLabel')} className="flex rounded-xl bg-ink-100 p-1">
           {(['day', 'week', 'month'] as CalendarView[]).map((item) => (
             <button
               key={item}
@@ -186,7 +187,7 @@ export function CalendarToolbar({
 
         <div className="ms-auto flex items-center gap-2">
           {canBook && (
-            <Button onClick={onOpenBooking} size="md">
+            <Button data-tour="bookbutton" onClick={onOpenBooking} size="md">
               <span aria-hidden="true">＋</span>
               <span className="hidden sm:inline">{t('calendar.bookButton')}</span>
               <span className="sm:hidden">จอง</span>

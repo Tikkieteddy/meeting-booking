@@ -191,6 +191,7 @@ export function WeekView({
 
                   {isToday && nowMinutes >= window.openMinutes && nowMinutes <= window.closeMinutes && (
                     <div
+                      data-tour="nowline"
                       className="now-line pointer-events-none absolute inset-x-0 z-20 h-0.5"
                       style={{ top: ((nowMinutes - window.openMinutes) / 60) * HOUR_PX }}
                       aria-hidden="true"

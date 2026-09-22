@@ -31,6 +31,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin', labelKey: 'admin.dashboard', icon: '📊', permission: 'report:read' },
   { href: '/admin/rooms', labelKey: 'nav.rooms', icon: '🚪', permission: 'room:manage' },
   { href: '/admin/users', labelKey: 'nav.users', icon: '👥', permission: 'user:manage' },
+  { href: '/admin/roles', labelKey: 'nav.roles', icon: '🛡', permission: 'role:manage' },
   { href: '/admin/reports', labelKey: 'nav.reports', icon: '📈', permission: 'report:read' },
   { href: '/admin/audit', labelKey: 'nav.auditLog', icon: '🧾', permission: 'audit:read' },
   { href: '/admin/system', labelKey: 'nav.systemHealth', icon: '🩺', permission: 'system:manage' },
@@ -107,6 +108,7 @@ export function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.href === '/bookings' ? 'mybookings' : undefined}
                 aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
                 className={cx(
                   'flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition-colors',
@@ -122,6 +124,7 @@ export function AppShell({
           <div className="ms-auto flex items-center gap-1.5">
             <Link
               href="/notifications"
+              data-tour="bell"
               className="relative flex size-11 items-center justify-center rounded-xl text-ink-600 hover:bg-ink-100"
               aria-label={`${t('notify.center')}${unreadCount > 0 ? ` (${unreadCount} รายการใหม่)` : ''}`}
             >
@@ -140,6 +143,7 @@ export function AppShell({
               */}
               <button
                 type="button"
+                data-tour="profilemenu"
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
@@ -209,6 +213,7 @@ export function AppShell({
           <Link
             key={item.href}
             href={item.href}
+            data-tour={item.href === '/bookings' ? 'mybookings' : undefined}
             aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
             className={cx(
               'flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium',

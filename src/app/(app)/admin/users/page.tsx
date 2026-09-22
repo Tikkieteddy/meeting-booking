@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/current-user";
 import { asService, withTx } from "@/lib/db/pool";
 import { UserManager, type AdminUser } from "@/components/admin/user-manager";
+import { listEnabledRoleCodes } from "@/lib/domain/roles-admin";
 import { t } from "@/lib/i18n";
 
 export const metadata = { title: t("nav.users") };
@@ -42,11 +43,14 @@ export default async function AdminUsersPage() {
       }),
   );
 
+  const enabledRoles = await listEnabledRoleCodes({ userId: user.id, role: "authenticated" });
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 overflow-y-auto p-4 sm:p-6">
       <UserManager
         users={users}
         canManageRoles={user.permissions.includes("role:manage")}
+        enabledRoles={enabledRoles}
       />
     </div>
   );

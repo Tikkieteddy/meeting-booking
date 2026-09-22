@@ -286,3 +286,49 @@ describe('ผู้ใช้ที่ไม่ได้ล็อกอิน', (
     expect(counts).toEqual({ bookings: 0, rooms: 0, profiles: 0 });
   });
 });
+
+describe('เปิด/ปิดการใช้งานบทบาท (migration 008)', () => {
+  it('พนักงานธรรมดาแก้สถานะบทบาทไม่ได้ — ไม่ error แต่แก้ได้ 0 แถว', async () => {
+    const changed = await withTx(ctxFor(world, 'employee'), async (sql) => {
+      const res = await sql.query("UPDATE roles SET enabled = false WHERE code = 'approver'");
+      return res.rowCount;
+    });
+    expect(changed).toBe(0);
+
+    // ยืนยันด้วยสิทธิ์ระบบว่าค่ายังเป็น true จริง
+    const still = await withServiceTx(async (sql) => {
+      const res = await sql.query<{ enabled: boolean }>("SELECT enabled FROM roles WHERE code = 'approver'");
+      return res.rows[0]?.enabled;
+    });
+    expect(still).toBe(true);
+  });
+
+  it('ผู้ดูแลระบบสูงสุดปิดบทบาทที่ไม่ใช่บทบาทหลักได้', async () => {
+    const changed = await withTx(ctxFor(world, 'admin'), async (sql) => {
+      const res = await sql.query("UPDATE roles SET enabled = false WHERE code = 'approver'");
+      return res.rowCount;
+    });
+    expect(changed).toBe(1);
+
+    // คืนค่าเดิมให้เทสต์อื่นในไฟล์นี้ไม่ได้รับผลกระทบ
+    await withServiceTx(async (sql) => {
+      await sql.query("UPDATE roles SET enabled = true WHERE code = 'approver'");
+    });
+  });
+
+  it('ปิดบทบาทหลักของระบบไม่ได้ — ฐานข้อมูลปฏิเสธด้วย check constraint', async () => {
+    await expect(
+      withTx(ctxFor(world, 'admin'), async (sql) => {
+        await sql.query("UPDATE roles SET enabled = false WHERE code = 'super_admin'");
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('แก้คอลัมน์อื่นของตารางบทบาทไม่ได้ แม้เป็นผู้ดูแลระบบสูงสุด', async () => {
+    await expect(
+      withTx(ctxFor(world, 'admin'), async (sql) => {
+        await sql.query("UPDATE roles SET name_th = 'ชื่อที่ถูกแก้' WHERE code = 'approver'");
+      }),
+    ).rejects.toThrow();
+  });
+});

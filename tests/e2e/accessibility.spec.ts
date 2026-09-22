@@ -128,12 +128,14 @@ test.describe('AC08 — Tutorial', () => {
     await page.goto('/help');
     await page.getByRole('button', { name: 'ดูคำแนะนำการใช้งานอีกครั้ง' }).click();
 
-    const tour = page.getByRole('dialog', { name: 'เริ่มใช้งานใน 5 ขั้น' });
+    const tour = page.getByRole('dialog', { name: 'แนะนำการใช้งาน' });
     await expect(tour).toBeVisible();
-    await expect(tour).toContainText('เลือกห้องประชุม');
+    await expect(tour).toContainText('ยินดีต้อนรับ');
+    // หน้าช่วยเหลือไม่มีปฏิทิน จึงไม่มีจุดให้ชี้ ต้องถอยไปเป็นกล่องกลางจอ ไม่ใช่ล้ม
+    await expect(tour).toHaveAttribute('data-tour-card', 'centered');
 
     await tour.getByRole('button', { name: 'ถัดไป' }).click();
-    await expect(tour).toContainText('ค้นหาอย่างรวดเร็ว');
+    await expect(tour).toContainText('เปลี่ยนวันที่ตรงนี้');
 
     await tour.getByRole('button', { name: 'ข้าม' }).click();
     await expect(tour).toBeHidden();

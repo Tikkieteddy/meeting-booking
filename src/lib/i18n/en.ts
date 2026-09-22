@@ -48,6 +48,13 @@ export const en: Partial<Record<MessageKey, string>> = {
   'auth.internalSystem': 'Internal system · sign in with your email',
   'auth.backToLogin': 'Back to sign in',
   'auth.haveAccount': 'Already have an account? Sign in',
+  'nav.roles': 'Roles & permissions',
+  'role.inUse': 'Enabled',
+  'role.hiddenState': 'Hidden',
+  'role.disabledNow': 'Hidden',
+  'role.hideAction': 'Hide',
+  'role.showAction': 'Enable',
+  'role.coreRoleNote': 'Core system role — cannot be hidden',
 
   'status.pending': 'Pending',
   'status.confirmed': 'Confirmed',

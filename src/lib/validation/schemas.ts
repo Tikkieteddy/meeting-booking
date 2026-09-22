@@ -193,6 +193,12 @@ export const inviteUserSchema = z.object({
   roleCode: z.enum(['super_admin', 'room_admin', 'approver', 'employee', 'viewer']),
 });
 
+/** เปิด/ปิดการใช้งานบทบาท (หน้าผู้ดูแลระบบ) */
+export const roleToggleSchema = z.object({
+  code: z.enum(['super_admin', 'room_admin', 'approver', 'employee', 'viewer']),
+  enabled: z.boolean(),
+});
+
 export const waitlistSchema = z.object({
   roomId: z.string().uuid(),
   dateISO,

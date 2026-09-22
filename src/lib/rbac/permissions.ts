@@ -52,6 +52,21 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
   viewer: [],
 };
 
+/**
+ * บทบาทที่ปิดการใช้งานไม่ได้ (กฎบริสุทธิ์ ทดสอบได้ตรง ๆ)
+ *
+ * - super_admin: ถ้าปิดได้จะไม่มีใครเปิดกลับได้เลย
+ * - employee: เป็นบทบาทตั้งต้นของผู้สมัครใหม่ทุกคน ถ้าปิดจะสมัครแล้วใช้งานไม่ได้
+ *
+ * ฐานข้อมูลบังคับกฎเดียวกันไว้อีกชั้นด้วย check constraint
+ * roles_core_always_enabled (migration 008)
+ */
+export const CORE_ROLES: readonly RoleCode[] = ['super_admin', 'employee'];
+
+export function canDisableRole(code: RoleCode): boolean {
+  return !CORE_ROLES.includes(code);
+}
+
 export type ScopeType = 'organization' | 'building' | 'room' | 'department';
 
 export type RoleAssignment = {

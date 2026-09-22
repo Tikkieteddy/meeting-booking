@@ -215,7 +215,7 @@ export function DayView({
               className="ms-1 rounded-md bg-red-600 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white">
                 {minutesToHhmm(nowMinutes)}
               </span>
-              <span className="now-line h-0.5 flex-1" />
+              <span data-tour="nowline" className="now-line h-0.5 flex-1" />
             </div>
           )}
         </div>
