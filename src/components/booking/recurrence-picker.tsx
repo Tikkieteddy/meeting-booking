@@ -316,7 +316,8 @@ export function RecurrencePicker({
           </fieldset>
 
           {rule && (
-            <p className="text-xs text-ink-600" aria-live="polite">
+            <p className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-900" aria-live="polite">
+              <span className="font-bold">{t('recurrence.summary')}: </span>
               {describeRecurrence(rule, dateISO)}
               {` · ${t("recurrence.skipNote", { max: MAX_OCCURRENCES })}`}
             </p>

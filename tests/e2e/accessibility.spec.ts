@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { STORAGE_STATE, expectNoHorizontalScroll, openCalendar } from './helpers';
+import { STORAGE_STATE, expectNoHorizontalScroll, openCalendar, firstVisibleBookingCard } from './helpers';
 
 /** บรีฟข้อ 12 และ 17: Keyboard, focus, screen reader, zoom 200% */
 test.describe('การเข้าถึง (Accessibility)', () => {
@@ -108,7 +108,7 @@ test.describe('การเข้าถึง (Accessibility)', () => {
     await page.getByRole('button', { name: 'วันนี้' }).click();
     // ชื่อของการ์ดต้องเกิดจากเนื้อหาที่แสดงจริง ไม่ใช่ aria-label ที่เขียนแยก
     // (WCAG 2.5.3 Label in Name — คนสั่งงานด้วยเสียงพูดตามที่เห็นบนจอ)
-    const card = page.getByRole('button', { name: /สถานะ/ }).first();
+    const card = await firstVisibleBookingCard(page);
     await expect(card).toBeVisible();
 
     const name = (await card.evaluate((el) => el.textContent ?? '')).replace(/\s+/g, ' ').trim();

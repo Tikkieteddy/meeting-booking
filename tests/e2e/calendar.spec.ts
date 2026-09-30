@@ -81,11 +81,24 @@ test.describe('หน้าปฏิทินหลัก', () => {
     await expect(page.locator('.now-line')).toHaveCount(1);
   });
 
+  test('สลับมุมมองรัว ๆ แล้วหน้าไม่พัง (คำขอเก่าที่ถูกยกเลิกต้องไม่ทำให้ข้อมูลว่าง)', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    for (let i = 0; i < 4; i++) {
+      await page.getByRole('tab', { name: 'มุมมองรายสัปดาห์' }).click();
+      await page.getByRole('tab', { name: 'มุมมองรายเดือน' }).click();
+      await page.getByRole('tab', { name: 'มุมมองรายวัน' }).click();
+    }
+    await expect(page.getByRole('tab', { name: 'มุมมองรายวัน' })).toHaveAttribute('aria-selected', 'true');
+    await page.waitForTimeout(1000);
+    expect(errors).toEqual([]);
+  });
+
   test('เลื่อนวันไปข้างหน้าและกลับมาวันนี้ได้', async ({ page }) => {
     const dateInput = page.getByLabel('วันที่', { exact: true });
     const today = await dateInput.inputValue();
 
-    await page.getByRole('button', { name: 'ถัดไป' }).click();
+    await page.getByRole('button', { name: 'ถัดไป', exact: true }).click();
     await expect(dateInput).not.toHaveValue(today);
 
     await page.getByRole('button', { name: 'วันนี้' }).click();

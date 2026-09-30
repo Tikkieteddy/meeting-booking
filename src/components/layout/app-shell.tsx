@@ -1,7 +1,6 @@
 'use client';
 
 import { SmartLink as Link } from '@/components/ui/smart-link';
-import { BrandMark } from '@/components/ui/brand-mark';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cx } from '@/components/ui/primitives';
@@ -83,7 +82,10 @@ export function AppShell({
   const visibleAdmin = ADMIN_NAV.filter((item) => allowed(user, item));
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="relative flex min-h-dvh flex-col">
+      {/* ภาพห้องประชุมเป็นฉากหลัง (แบบจาก Stitch) — เป็นของตกแต่งล้วน ซ่อนจาก screen reader */}
+      <div aria-hidden="true" className="app-backdrop" />
+
       <a href="#main" className="sr-only-focusable focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-brand-500 focus:px-3 focus:py-2 focus:text-white">
         {t('nav.skipToContent')}
       </a>
@@ -96,17 +98,17 @@ export function AppShell({
         ไม่เกิน header — ถ้า header เท่ากับเนื้อหา เส้นเวลาปัจจุบันจะลอยทับเมนูโปรไฟล์
         (บั๊กที่ผู้ใช้เจอ 30 ก.ย. 2569) มีเทสต์ใน tests/e2e/layering.spec.ts
       */}
-      <header className="sticky top-0 z-40 border-b border-ink-200 bg-white/95 backdrop-blur">
+      {/*
+        แถบหัวโปร่งสีเข้มวางบนภาพพื้นหลัง ตัวอักษรขาว — พื้นเข้ม 75% ขึ้นไปทำให้อ่านออก
+        ไม่ว่าส่วนไหนของภาพจะสว่าง
+      */}
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#1f1a17]/80 text-white backdrop-blur-md">
         <div className="flex h-16 items-center gap-3 px-3 sm:px-5">
           {/*
-            aria-label ต้องครอบคลุมข้อความที่ตาเห็น (กฎ WCAG 2.5.3 Label in Name)
-            ข้อความที่เห็นคือ "TNN Meeting" ซึ่งซ่อนบนจอเล็ก จึงใช้ชื่อย่อเป็น
-            aria-label และใช้โลโก้แบบ SVG เพื่อไม่ให้ตัวอักษร T กลายเป็นข้อความ
-            ที่ตาเห็นแต่ไม่อยู่ในชื่อ
+            ชื่อของลิงก์มาจากข้อความที่ตาเห็นเอง ไม่เขียน aria-label ทับ (กฎ WCAG 2.5.3 Label in Name)
           */}
-          <Link href="/calendar" className="flex shrink-0 items-center gap-2" aria-label={t('app.shortName')}>
-            <BrandMark className="size-9 shrink-0 text-brand-500" />
-            <span className="hidden text-sm font-semibold text-ink-900 sm:block">{t('app.shortName')}</span>
+          <Link href="/calendar" className="flex shrink-0 items-center gap-2.5">
+            <BrandWordmark />
           </Link>
 
           <nav aria-label="เมนูหลัก" className="hidden items-center gap-1 md:flex">
@@ -118,7 +120,7 @@ export function AppShell({
                 aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
                 className={cx(
                   'flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition-colors',
-                  pathname.startsWith(item.href) ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-100',
+                  pathname.startsWith(item.href) ? 'bg-white/15 text-white' : 'text-white/85 hover:bg-white/10 hover:text-white',
                 )}
               >
                 <span aria-hidden="true">{item.icon}</span>
@@ -127,11 +129,16 @@ export function AppShell({
             ))}
           </nav>
 
-          <div className="ms-auto flex items-center gap-1.5">
+          <p className="ms-auto hidden text-end leading-tight 2xl:block" aria-hidden="true">
+            <span className="block text-sm font-semibold">{t('brand.slogan')}</span>
+            <span className="block text-[0.625rem] tracking-[0.2em] text-white/75">GOOD SPACES. BRIGHTER TOMORROW.</span>
+          </p>
+
+          <div className="ms-auto flex items-center gap-1.5 2xl:ms-4">
             <Link
               href="/notifications"
               data-tour="bell"
-              className="relative flex size-11 items-center justify-center rounded-xl text-ink-600 hover:bg-ink-100"
+              className="relative flex size-11 items-center justify-center rounded-xl text-white hover:bg-white/10"
               aria-label={`${t('notify.center')}${unreadCount > 0 ? ` (${unreadCount} รายการใหม่)` : ''}`}
             >
               <span aria-hidden="true">🔔</span>
@@ -154,16 +161,16 @@ export function AppShell({
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
                 aria-label={`เมนูของ ${user.fullName} (${user.roleLabel})`}
-                className="flex h-11 items-center gap-2 rounded-xl px-2 hover:bg-ink-100"
+                className="flex h-11 items-center gap-2 rounded-xl px-2 hover:bg-white/10"
               >
-                <span className="flex size-8 items-center justify-center rounded-full bg-ink-200 text-xs font-semibold text-ink-700">
+                <span className="flex size-8 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold text-white">
                   {user.fullName.trim().charAt(0) || '?'}
                 </span>
                 <span className="hidden text-start sm:block">
-                  <span className="block text-sm font-medium leading-tight text-ink-800">{user.fullName}</span>
-                  <span className="block text-xs leading-tight text-ink-500">{user.roleLabel}</span>
+                  <span className="block text-sm font-medium leading-tight text-white">{user.fullName}</span>
+                  <span className="block text-xs leading-tight text-white/80">{user.roleLabel}</span>
                 </span>
-                <span aria-hidden="true" className="text-xs text-ink-400">
+                <span aria-hidden="true" className="text-xs text-white/80">
                   ▾
                 </span>
               </button>
@@ -210,7 +217,14 @@ export function AppShell({
         {toolbar}
       </header>
 
-      <main id="main" className="flex flex-1 flex-col overflow-hidden">
+      {/*
+        แผงเนื้อหาแบบกระจกฝ้าลอยบนภาพพื้นหลัง (จอ md ขึ้นไป)
+        บนมือถือเป็นพื้นทึบเต็มจอ อ่านง่ายกว่าและไม่เปลืองพื้นที่
+      */}
+      <main
+        id="main"
+        className="flex flex-1 flex-col overflow-hidden bg-[#f7f5f3] md:mx-4 md:my-4 md:rounded-[1.25rem] md:border md:border-white/60 md:bg-white/[0.94] md:shadow-[0_24px_48px_-12px_rgb(0_0_0/0.35)] md:backdrop-blur-xl lg:mx-6"
+      >
         {children}
       </main>
 
@@ -240,6 +254,20 @@ export function AppShell({
         ))}
       </nav>
     </div>
+  );
+}
+
+/** โลโก้แบบตัวอักษรตามแบบ: "TNN | MEETING ROOM / SIMPLE BOOKING. BIGGER IDEAS." */
+function BrandWordmark() {
+  return (
+    <>
+      <span className="text-2xl font-extrabold leading-none tracking-tight text-accent">TNN</span>
+      <span aria-hidden="true" className="h-7 w-px bg-white/30" />
+      <span className="hidden flex-col leading-none sm:flex">
+        <span className="text-sm font-semibold uppercase tracking-[0.25em] text-white">Meeting Room</span>
+        <span className="mt-1 text-[0.625rem] uppercase tracking-[0.15em] text-white/75">Simple booking. Bigger ideas.</span>
+      </span>
+    </>
   );
 }
 

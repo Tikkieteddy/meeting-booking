@@ -6,17 +6,22 @@
    มุมโค้ง, สีส้ม TNN #EC5F27 เป็น accent
    ============================================================ */
 @theme {
-  /* สีแบรนด์ */
-  --color-brand-50: #fff4ef;
-  --color-brand-100: #ffe4d7;
-  --color-brand-200: #ffc6ae;
-  --color-brand-300: #ff9f79;
-  --color-brand-400: #f87b4b;
-  --color-brand-500: #ec5f27;
-  --color-brand-600: #d24d18;
-  --color-brand-700: #ae3c12;
-  --color-brand-800: #8a3011;
-  --color-brand-900: #702a12;
+  /* สีแบรนด์ — ปรับตามแบบจาก Stitch (30 ก.ย. 2569): ส้มเข้ม "burnt terracotta" เป็นสีหลัก
+     brand-500 = #C2410C ใช้กับปุ่มหลักที่ตัวอักษรขาวได้ (5.2:1 ผ่าน WCAG AA)
+     เดิม #EC5F27 + ตัวอักษรขาวได้แค่ 3.36:1 ไม่ผ่าน
+     ส้มสด TNN (#F26522) ย้ายไปเป็น accent ใช้กับโลโก้/ไอคอน/ของตกแต่งเท่านั้น
+     ห้ามวางตัวอักษรขาวบน accent */
+  --color-brand-50: #fff6f1;
+  --color-brand-100: #ffe8db;
+  --color-brand-200: #fdcdb3;
+  --color-brand-300: #f9a57d;
+  --color-brand-400: #f26522;
+  --color-brand-500: #c2410c;
+  --color-brand-600: #a8380a;
+  --color-brand-700: #8f300b;
+  --color-brand-800: #74280c;
+  --color-brand-900: #5c210c;
+  --color-accent: #f26522;
 
   /* โทนกลาง (พื้นขาวโปร่ง) */
   --color-ink-50: #f8f8f7;
@@ -39,7 +44,7 @@
   /* สีสถานะการจอง — ทุกสีผ่าน contrast AA เมื่อใช้กับตัวอักษรเข้ม
      และต้องมีข้อความ/ไอคอนกำกับเสมอ (บรีฟข้อ 12) */
   --color-status-free: #16a34a;
-  --color-status-partial: #eab308;
+  --color-status-partial: #2563eb; /* ฟ้า ตามแบบ Stitch (เดิมเหลือง) */
   --color-status-almost: #f97316;
   --color-status-full: #dc2626;
   --color-status-pending: #a855f7;
@@ -90,10 +95,35 @@ html {
 }
 
 body {
-  background-color: var(--color-ink-50);
+  background-color: #f7f5f3;
   color: var(--color-ink-800);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * ฉากหลังภาพห้องประชุม (แบบจาก Stitch, 30 ก.ย. 2569)
+ * - fixed เต็มจอ อยู่หลังทุกอย่าง ทับด้วยชั้นสีเข้มไล่ระดับ ให้ตัวอักษรขาวบนแถบหัวอ่านออก
+ * - มือถือโหลดไฟล์เล็ก (17 KB) จอใหญ่โหลดไฟล์ 60 KB — ประหยัดเน็ตตามที่ตั้งใจไว้ในโปรเจกต์
+ * - ภาพเป็นของตกแต่ง ถ้าโหลดไม่ได้ สีพื้นเข้มยังทำให้ทุกอย่างอ่านได้
+ */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: #2b2522;
+  background-image:
+    linear-gradient(180deg, rgb(31 26 23 / 0.55) 0%, rgb(31 26 23 / 0.35) 45%, rgb(31 26 23 / 0.7) 100%),
+    url('/images/office-bg-720.webp');
+  background-size: cover;
+  background-position: center;
+}
+@media (min-width: 768px) {
+  .app-backdrop {
+    background-image:
+      linear-gradient(180deg, rgb(31 26 23 / 0.55) 0%, rgb(31 26 23 / 0.35) 45%, rgb(31 26 23 / 0.7) 100%),
+      url('/images/office-bg-1376.webp');
+  }
 }
 
 /* Focus state ที่เห็นชัดทุก element (บรีฟข้อ 12 / WCAG 2.1 AA) */

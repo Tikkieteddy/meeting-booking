@@ -144,6 +144,9 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
       onClose={onClose}
       title={t('booking.new')}
       description={`${room.name} · ${formatThaiDate(dateISO)}`}
+      placement="drawer"
+      size="sm"
+      icon="＋"
       footer={
         <div className="flex items-center justify-between gap-3">
           <p className="flex flex-wrap items-center gap-2 text-xs text-ink-500">
@@ -200,6 +203,24 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
               ))}
             </Select>
           </Field>
+          {/* การ์ดห้องที่เลือก: รูป ชื่อ ความจุ แผนที่ (แบบจาก Stitch) */}
+          <div className="flex items-center gap-3 rounded-xl border border-ink-200 bg-white p-2 sm:col-span-2">
+            <span
+              aria-hidden="true"
+              className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink-100 text-lg"
+              style={room.photos[0] ? { backgroundImage: `url(${room.photos[0]})`, backgroundSize: 'cover' } : undefined}
+            >
+              {!room.photos[0] && '🚪'}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-bold text-ink-900">{room.name}</span>
+              <span className="truncate text-xs text-ink-600">
+                {room.floor ? `ชั้น ${room.floor} · ` : ''}
+                {t('booking.capacity')} {room.capacity} {t('common.people')}
+              </span>
+            </span>
+            <MapLink href={room.mapLink} compact className="ms-auto shrink-0" />
+          </div>
           <Field label={t('booking.date')} htmlFor="bk-date" required error={fieldErrors.dateISO}>
             <Input id="bk-date" type="date" value={dateISO} onChange={(event) => setDateISO(event.target.value)} required />
           </Field>
@@ -240,15 +261,27 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
             error={fieldErrors.attendeeCount}
             hint={`ความจุห้อง ${room.capacity} ${t('common.people')}`}
           >
-            <Input
-              id="bk-count"
-              type="number"
-              min={1}
-              max={1000}
-              value={attendeeCount}
-              onChange={(event) => setAttendeeCount(Number(event.target.value))}
-              aria-invalid={Boolean(fieldErrors.attendeeCount)}
-            />
+            <div className="relative">
+              <Input
+                id="bk-count"
+                type="number"
+                min={1}
+                max={1000}
+                value={attendeeCount}
+                onChange={(event) => setAttendeeCount(Number(event.target.value))}
+                aria-invalid={Boolean(fieldErrors.attendeeCount)}
+                className="pe-14"
+              />
+              <span
+                aria-hidden="true"
+                className={cx(
+                  'pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs tabular-nums',
+                  attendeeCount > room.capacity ? 'font-bold text-red-700' : 'text-ink-600',
+                )}
+              >
+                / {room.capacity}
+              </span>
+            </div>
           </Field>
           <Field label={t('booking.privacy')} htmlFor="bk-privacy">
             <Select id="bk-privacy" value={privacy} onChange={(event) => setPrivacy(event.target.value as typeof privacy)}>
@@ -283,12 +316,21 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
                   }
                   aria-pressed={active}
                   className={cx(
-                    'rounded-full border px-3 py-1.5 text-xs font-medium',
-                    active ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-ink-200 text-ink-600 hover:bg-ink-50',
+                    'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium',
+                    active ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50',
                     !available && 'opacity-60',
                   )}
                   title={available ? undefined : 'ห้องนี้ไม่มีอุปกรณ์นี้ประจำห้อง จะถูกบันทึกเป็นคำขอบริการเสริม'}
                 >
+                  <span
+                    aria-hidden="true"
+                    className={cx(
+                      'flex size-4 items-center justify-center rounded border text-[0.625rem]',
+                      active ? 'border-brand-500 bg-brand-500 text-white' : 'border-ink-300 bg-white',
+                    )}
+                  >
+                    {active ? '✓' : ''}
+                  </span>
                   {amenity.nameTh}
                   {!available && ' (ขอเพิ่ม)'}
                 </button>

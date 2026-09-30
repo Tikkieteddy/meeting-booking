@@ -73,6 +73,8 @@ export function CalendarClient({
       const params = new URLSearchParams({ view, date: dateISO });
       if (roomId) params.set('roomId', roomId);
       const result = await apiFetch<CalendarData>(`/api/calendar?${params.toString()}`, { signal: controller.signal });
+      // คำขอเก่าที่ถูกแทนที่แล้วห้ามเขียนทับข้อมูล และห้ามเอาค่าว่างมาใส่ (หน้าจะพัง)
+      if (controller.signal.aborted || !result) return;
       setData(result);
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return;

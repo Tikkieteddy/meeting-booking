@@ -1,8 +1,11 @@
 import type { CalendarBooking } from '@/lib/domain/calendar-shared';
 import { hhmmToMinutes, partsInZone, toDateISO } from '@/lib/util/time';
 
-/** ความสูงของหนึ่งชั่วโมงในตารางเวลา (พิกเซล) — ตรงกับ --spacing-hour ใน globals.css */
-export const HOUR_PX = 56;
+/**
+ * ความสูงของหนึ่งชั่วโมงในตารางเวลา (พิกเซล)
+ * เพิ่มจาก 56 เป็น 84 ตามแบบใหม่ — ตัวอักษรทั้งเว็บขยาย 150% การ์ด 30 นาทีเดิมเตี้ยจนอ่านไม่ออก
+ */
+export const HOUR_PX = 84;
 export const TZ = 'Asia/Bangkok';
 
 export type TimeWindow = { openMinutes: number; closeMinutes: number; totalMinutes: number };
@@ -52,15 +55,37 @@ export function hourLabels(window: TimeWindow): { minutes: number; label: string
   return out;
 }
 
-/** สีของการ์ดตามสถานะ — ใช้ร่วมกับข้อความและสัญลักษณ์เสมอ */
+/**
+ * สีของการ์ดตามสถานะ (แบบจาก Stitch: พื้นสีอ่อน + แถบสีทึบด้านซ้าย)
+ * สีบอกสถานะเท่านั้น และมีข้อความ/สัญลักษณ์กำกับเสมอ — ตัวอักษรใช้โทนเข้ม (900) ผ่าน AA บนพื้นอ่อน
+ */
 export function bookingTone(status: string, isMine: boolean): string {
-  if (status === 'pending') return 'border-purple-300 bg-purple-50 text-purple-900';
-  if (status === 'checked_in') return 'border-sky-300 bg-sky-50 text-sky-900';
-  if (status === 'maintenance') return 'border-slate-300 bg-slate-100 text-slate-800';
-  if (status === 'no_show') return 'border-amber-300 bg-amber-50 text-amber-900';
-  if (isMine) return 'border-brand-300 bg-brand-50 text-brand-900';
-  return 'border-emerald-300 bg-emerald-50 text-emerald-900';
+  if (status === 'pending') return 'border-amber-200 border-s-amber-500 bg-amber-50 text-amber-950';
+  if (status === 'checked_in') return 'border-emerald-200 border-s-emerald-600 bg-emerald-50 text-emerald-950';
+  if (status === 'maintenance' || status === 'completed') return 'border-stone-200 border-s-stone-500 bg-stone-100 text-stone-900';
+  if (status === 'no_show') return 'border-red-200 border-s-red-600 bg-red-50 text-red-950';
+  if (isMine) return 'border-brand-200 border-s-brand-500 bg-brand-50 text-brand-900';
+  return 'border-blue-200 border-s-blue-600 bg-blue-50 text-blue-950';
 }
+
+export type Occupancy = 'free' | 'partial' | 'almost' | 'full';
+
+/** ความหนาแน่นของห้องในวันนั้น จากนาทีที่ถูกจองเทียบกับเวลาทำการ — ใช้กับจุดสีบนหัวคอลัมน์ */
+export function occupancyOf(bookings: readonly Pick<CalendarBooking, 'startsAt' | 'endsAt'>[], window: TimeWindow): Occupancy {
+  const booked = bookings.reduce((sum, b) => sum + Math.max(0, minutesOfDay(b.endsAt) - minutesOfDay(b.startsAt)), 0);
+  const ratio = booked / window.totalMinutes;
+  if (ratio <= 0) return 'free';
+  if (ratio < 0.6) return 'partial';
+  if (ratio < 0.9) return 'almost';
+  return 'full';
+}
+
+export const OCCUPANCY_DOT: Record<Occupancy, string> = {
+  free: 'bg-green-600',
+  partial: 'bg-blue-600',
+  almost: 'bg-orange-500',
+  full: 'bg-red-600',
+};
 
 /** จัดกลุ่มการจองตามวัน (ใช้ใน Week View) */
 export function groupByDate(bookings: readonly CalendarBooking[], timezone = TZ): Map<string, CalendarBooking[]> {

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { STORAGE_STATE, bookingDateISO, openCalendar } from './helpers';
+import { STORAGE_STATE, bookingDateISO, firstVisibleBookingCard, openCalendar } from './helpers';
 
 const ROOM_LABEL = 'ห้องประชุมย่อย 2 · 6 คน';
 
@@ -76,7 +76,7 @@ test.describe('การจองห้องประชุม', () => {
     await page.getByRole('button', { name: 'วันนี้' }).click();
     // การ์ดการจองไม่มี aria-label แล้ว — ชื่อมาจากเนื้อหาจริงรวมข้อความสถานะ
     // (ดูเหตุผลใน src/components/calendar/booking-card.tsx)
-    const card = page.getByRole('button', { name: /สถานะ/ }).first();
+    const card = await firstVisibleBookingCard(page);
     await expect(card).toBeVisible();
     await card.click();
 

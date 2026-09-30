@@ -38,7 +38,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   let payload: unknown = null;
   try {
     payload = await response.json();
-  } catch {
+  } catch (error) {
+    // คำขอถูกยกเลิกระหว่างอ่านเนื้อหา (เช่น ผู้ใช้สลับมุมมองปฏิทินเร็ว ๆ) ต้องโยนต่อ
+    // เดิมกลืนไว้แล้วคืนค่า null ทำให้หน้าปฏิทินได้ข้อมูลว่างแล้วพังทั้งหน้า
+    if ((error as Error)?.name === 'AbortError' || init.signal?.aborted) throw error;
     payload = null;
   }
 

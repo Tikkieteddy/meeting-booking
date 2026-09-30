@@ -97,3 +97,19 @@ const PROJECT_WEEK_OFFSET: Record<string, number> = {
 export function bookingDateISO(projectName: string): string {
   return nextWeekdayISO(3 + (PROJECT_WEEK_OFFSET[projectName] ?? 0));
 }
+
+/**
+ * หาการ์ดการจองแรกที่เห็นในมุมมองรายวัน
+ * บนมือถือมุมมองรายวันแสดงทีละห้อง (แบบจาก Stitch) — ถ้าห้องแรกไม่มีการจอง ให้กด "ห้องถัดไป" จนเจอ
+ */
+export async function firstVisibleBookingCard(page: Page) {
+  const card = page.getByRole('button', { name: /สถานะ/ }).first();
+  const next = page.getByRole('button', { name: 'ห้องถัดไป', exact: true });
+  for (let i = 0; i < 12; i++) {
+    if (await card.isVisible()) break;
+    if (!(await next.isVisible()) || !(await next.isEnabled())) break;
+    await next.click();
+    await page.waitForTimeout(150);
+  }
+  return card;
+}

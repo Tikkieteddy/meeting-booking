@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { cx } from './primitives';
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { cx } from "./primitives";
 
 /**
  * Modal / Drawer ที่เข้าถึงได้ (บรีฟข้อ 12)
@@ -20,13 +20,17 @@ let lastFocusedOutsideDialog: HTMLElement | null = null;
 let focusTrackerInstalled = false;
 
 function installFocusTracker() {
-  if (focusTrackerInstalled || typeof document === 'undefined') return;
+  if (focusTrackerInstalled || typeof document === "undefined") return;
   focusTrackerInstalled = true;
   document.addEventListener(
-    'focusin',
+    "focusin",
     (event) => {
       const target = event.target as HTMLElement | null;
-      if (target && typeof target.closest === 'function' && !target.closest('[role="dialog"]')) {
+      if (
+        target &&
+        typeof target.closest === "function" &&
+        !target.closest('[role="dialog"]')
+      ) {
         lastFocusedOutsideDialog = target;
       }
     },
@@ -41,7 +45,9 @@ export function Overlay({
   description,
   children,
   footer,
-  size = 'md',
+  size = "md",
+  placement = "center",
+  icon,
 }: {
   open: boolean;
   onClose: () => void;
@@ -49,7 +55,11 @@ export function Overlay({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
+  /** drawer = แผงเลื่อนจากด้านขวาเต็มความสูง (จอ sm ขึ้นไป) ตามแบบฟอร์มจองจาก Stitch; มือถือเป็นแผ่นจากด้านล่างเหมือนเดิม */
+  placement?: "center" | "drawer";
+  /** ไอคอนตกแต่งหน้าหัวข้อ */
+  icon?: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -85,19 +95,22 @@ export function Overlay({
     if (!open) return;
     // ตัวที่ควรได้ focus คืนเมื่อปิด คือ element ที่มี focus นอก dialog ล่าสุด
     const active = document.activeElement as HTMLElement | null;
-    const activeIsOutside = active && active !== document.body && !active.closest('[role="dialog"]');
-    previouslyFocused.current = activeIsOutside ? active : lastFocusedOutsideDialog;
+    const activeIsOutside =
+      active && active !== document.body && !active.closest('[role="dialog"]');
+    previouslyFocused.current = activeIsOutside
+      ? active
+      : lastFocusedOutsideDialog;
     const timer = window.setTimeout(() => focusables()[0]?.focus(), 30);
     const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         event.stopPropagation();
         onCloseRef.current();
         return;
       }
-      if (event.key !== 'Tab') return;
+      if (event.key !== "Tab") return;
       const items = focusables();
       if (items.length === 0) return;
       const first = items[0]!;
@@ -111,10 +124,10 @@ export function Overlay({
       }
     };
 
-    document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
     return () => {
       window.clearTimeout(timer);
-      document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
       document.body.style.overflow = prevOverflow;
 
       // คืน focus ให้ตัวที่เปิด dialog หลัง DOM อัปเดตเสร็จ
@@ -131,31 +144,56 @@ export function Overlay({
 
   if (!open) return null;
 
-  const width = { sm: 'sm:max-w-md', md: 'sm:max-w-2xl', lg: 'sm:max-w-4xl' }[size];
+  const width = { sm: "sm:max-w-md", md: "sm:max-w-2xl", lg: "sm:max-w-4xl" }[
+    size
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
+    <div
+      className={cx(
+        "fixed inset-0 z-50 flex items-end justify-center",
+        placement === "drawer"
+          ? "sm:items-stretch sm:justify-end"
+          : "sm:items-center",
+      )}
+    >
+      <div
+        className="absolute inset-0 bg-ink-900/40 backdrop-blur-[2px]"
+        onClick={onClose}
+        aria-hidden="true"
+      />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        aria-describedby={description ? 'overlay-desc' : undefined}
+        aria-describedby={description ? "overlay-desc" : undefined}
         className={cx(
-          'relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl',
-          'sm:rounded-2xl',
+          "relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl",
+          placement === "drawer"
+            ? "sm:max-h-none sm:rounded-none sm:rounded-s-2xl"
+            : "sm:rounded-2xl",
           width,
         )}
       >
         <div className="flex items-start justify-between gap-4 border-b border-ink-100 px-5 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-ink-900">{title}</h2>
-            {description && (
-              <p id="overlay-desc" className="mt-0.5 text-sm text-ink-500">
-                {description}
-              </p>
+          <div className="flex items-start gap-3">
+            {icon && (
+              <span
+                aria-hidden="true"
+                className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-lg text-brand-700"
+              >
+                {icon}
+              </span>
             )}
+            <div>
+              <h2 className="text-lg font-semibold text-ink-900">{title}</h2>
+              {description && (
+                <p id="overlay-desc" className="mt-0.5 text-sm text-ink-600">
+                  {description}
+                </p>
+              )}
+            </div>
           </div>
           <button
             type="button"
@@ -166,8 +204,19 @@ export function Overlay({
             <span aria-hidden="true">✕</span>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="border-t border-ink-100 bg-ink-50 px-5 py-3">{footer}</div>}
+        <div
+          className={cx(
+            "flex-1 overflow-y-auto px-5 py-4",
+            placement === "drawer" && "bg-[#f7f5f3]",
+          )}
+        >
+          {children}
+        </div>
+        {footer && (
+          <div className="border-t border-ink-100 bg-white px-5 py-3">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -179,7 +228,7 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel,
-  cancelLabel = 'ยกเลิก',
+  cancelLabel = "ยกเลิก",
   destructive,
   onConfirm,
   onClose,
@@ -204,15 +253,21 @@ export function ConfirmDialog({
       size="sm"
       footer={
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="h-11 rounded-xl border border-ink-200 bg-white px-4 text-sm font-medium">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-11 rounded-xl border border-ink-200 bg-white px-4 text-sm font-medium"
+          >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
             className={cx(
-              'h-11 rounded-xl px-4 text-sm font-medium text-white',
-              destructive ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-500 hover:bg-brand-600',
+              "h-11 rounded-xl px-4 text-sm font-medium text-white",
+              destructive
+                ? "bg-red-600 hover:bg-red-700"
+                : "bg-brand-500 hover:bg-brand-600",
             )}
           >
             {confirmLabel}

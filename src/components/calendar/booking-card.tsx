@@ -49,7 +49,8 @@ export function BookingCard({
       onClick={() => onOpen(booking)}
       style={style}
       className={cx(
-        'group absolute z-10 flex w-full flex-col overflow-hidden rounded-lg border px-2 py-1 text-start',
+        // แบบจาก Stitch: พื้นสีอ่อน ขอบบาง แถบสีทึบด้านซ้าย มุมโค้ง เงานุ่ม
+        'group absolute z-10 flex w-full flex-col gap-0.5 overflow-hidden rounded-lg border border-s-4 px-2 py-1.5 text-start shadow-[0_2px_6px_-1px_rgb(31_26_23/0.06)]',
         'transition-shadow hover:shadow-soft focus-visible:z-20',
         bookingTone(booking.status, booking.isMine),
         compact && 'py-0.5',
@@ -58,12 +59,24 @@ export function BookingCard({
       <span className="flex items-center gap-1 text-[0.6875rem] font-semibold leading-tight">
         <span aria-hidden="true">{symbol}</span>
         <span className="tabular-nums">{timeRange}</span>
-        {booking.isMine && <span className="rounded bg-brand-500/15 px-1 text-[0.625rem]">ของฉัน</span>}
+        {booking.status === 'pending' && !compact && (
+          <span className="ms-auto shrink-0 rounded-full bg-amber-200 px-1.5 text-[0.625rem] font-bold text-amber-950">
+            {statusLabel}
+          </span>
+        )}
+        {booking.isMine && booking.status !== 'pending' && !compact && (
+          <span className="ms-auto shrink-0 rounded-full bg-brand-100 px-1.5 text-[0.625rem] font-bold text-brand-900">ของฉัน</span>
+        )}
       </span>
-      <span className="truncate text-xs font-medium leading-snug">{booking.title}</span>
-      {showBooker && <span className="truncate text-[0.6875rem] leading-tight opacity-80">{bookerLine}</span>}
-      {showRoomLine && <span className="truncate text-[0.6875rem] leading-tight opacity-70">{roomName}</span>}
-      {!booking.canSeeDetails && <span className="text-[0.6875rem] opacity-70">{t('booking.privateHidden')}</span>}
+      <span className="truncate text-xs font-bold leading-snug">{booking.title}</span>
+      {showBooker && (
+        <span className="truncate text-[0.6875rem] leading-tight opacity-90">
+          <span aria-hidden="true">👤 </span>
+          {bookerLine}
+        </span>
+      )}
+      {showRoomLine && <span className="truncate text-[0.6875rem] leading-tight opacity-90">{roomName}</span>}
+      {!booking.canSeeDetails && <span className="text-[0.6875rem] opacity-90">{t('booking.privateHidden')}</span>}
       {/*
         ไม่ใช้ aria-label ที่นี่โดยเจตนา
         กฎ WCAG 2.5.3 (Label in Name) กำหนดว่าชื่อที่ screen reader อ่าน

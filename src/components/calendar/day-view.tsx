@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { CalendarBooking, CalendarClosure } from '@/lib/domain/calendar-shared';
 import { layoutOverlaps } from '@/lib/domain/calendar-shared';
 import type { Room } from '@/lib/domain/rooms';
@@ -8,7 +8,8 @@ import { cx } from '@/components/ui/primitives';
 import { t } from '@/lib/i18n';
 import { minutesToHhmm, partsInZone, toDateISO } from '@/lib/util/time';
 import { BookingCard } from './booking-card';
-import { HOUR_PX, TZ, cardGeometry, hourLabels, minutesOfDay, timeWindow } from './shared';
+import { HOUR_PX, OCCUPANCY_DOT, TZ, cardGeometry, hourLabels, minutesOfDay, occupancyOf, timeWindow } from './shared';
+import { OccupancyLegend } from './legend';
 
 /**
  * มุมมองรายวัน (บรีฟข้อ 3.1)
@@ -37,7 +38,19 @@ export function DayView({
   conflictSlotKey: string | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const columns = selectedRoomId ? rooms.filter((r) => r.id === selectedRoomId) : rooms;
+  /*
+   * มือถือ + "ทุกห้อง": แสดงทีละห้องพร้อมปุ่มเลื่อนห้อง (แบบจาก Stitch)
+   * เดิมบีบทุกห้องลงจอ 390px จนชื่อและการ์ดอ่านไม่ออก
+   */
+  const isNarrow = useIsNarrow();
+  const [mobileIndex, setMobileIndex] = useState(0);
+  const oneAtATime = isNarrow && !selectedRoomId && rooms.length > 1;
+  const safeIndex = Math.min(mobileIndex, Math.max(0, rooms.length - 1));
+  const columns = selectedRoomId
+    ? rooms.filter((r) => r.id === selectedRoomId)
+    : oneAtATime
+      ? rooms.slice(safeIndex, safeIndex + 1)
+      : rooms;
 
   const window = useMemo(() => {
     const open = columns.reduce((min, r) => (r.policy.openTime < min ? r.policy.openTime : min), '23:59');
@@ -67,32 +80,82 @@ export function DayView({
     return <p className="p-6 text-sm text-ink-500">ยังไม่มีห้องประชุมในระบบ</p>;
   }
 
+  const current = rooms[safeIndex];
+  const nextRoom = rooms[safeIndex + 1];
+
   return (
     <div className="flex h-full flex-col">
-      {/* หัวคอลัมน์ห้อง (คงที่เมื่อเลื่อน) */}
-      {columns.length > 1 && (
-        <div className="flex shrink-0 border-b border-ink-200 bg-white">
-          <div className="w-14 shrink-0 sm:w-16" />
-          {columns.map((room) => (
-            <div key={room.id} className="min-w-32 flex-1 border-s border-ink-100 px-2 py-2">
-              <p className="truncate text-xs font-semibold text-ink-800">{room.name}</p>
-              <p className="truncate text-[0.6875rem] text-ink-500">
-                {room.capacity} {t('common.people')}
-                {room.floor ? ` · ชั้น ${room.floor}` : ''}
+      {oneAtATime && current && (
+        <div className="shrink-0 border-b border-ink-200 bg-white px-3 py-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileIndex((i) => Math.max(0, i - 1))}
+              disabled={safeIndex === 0}
+              aria-label={t('calendar.prevRoom')}
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-800 disabled:opacity-40"
+            >
+              <span aria-hidden="true">‹</span>
+            </button>
+            <div className="min-w-0 flex-1 text-center" aria-live="polite">
+              <p className="truncate text-sm font-bold text-ink-900">{current.name}</p>
+              <p className="truncate text-xs text-ink-600">
+                {t('booking.capacity')} {current.capacity} {t('common.people')}
+                {current.floor ? ` · ชั้น ${current.floor}` : ''} · {t('calendar.roomOf', { n: safeIndex + 1, total: rooms.length })}
               </p>
             </div>
-          ))}
+            <button
+              type="button"
+              onClick={() => setMobileIndex((i) => Math.min(rooms.length - 1, i + 1))}
+              disabled={!nextRoom}
+              aria-label={t('calendar.nextRoom')}
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-800 disabled:opacity-40"
+            >
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+          {nextRoom && (
+            <p className="mt-1 truncate text-center text-[0.6875rem] text-ink-600">
+              {t('calendar.nextRoomHint', { name: nextRoom.name })}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* หัวคอลัมน์ห้อง (คงที่เมื่อเลื่อน) */}
+      {columns.length > 1 && (
+        <div className="flex shrink-0 border-b border-ink-200 bg-ink-50/80">
+          <div className="w-14 shrink-0 sm:w-16" />
+          {columns.map((room) => {
+            const level = occupancyOf(
+              bookings.filter((b) => b.roomId === room.id),
+              window,
+            );
+            return (
+              <div key={room.id} className="min-w-32 flex-1 border-s border-ink-200/70 px-3 py-2.5">
+                <p className="flex items-center gap-2 text-xs font-bold text-ink-900">
+                  <span className="truncate">{room.name}</span>
+                  <span aria-hidden="true" className={cx('ms-auto size-2.5 shrink-0 rounded-full', OCCUPANCY_DOT[level])} />
+                  <span className="sr-only">{t(`occupancy.${level}` as 'occupancy.free')}</span>
+                </p>
+                <p className="truncate text-[0.6875rem] text-ink-600">
+                  {t('booking.capacity')} {room.capacity} {t('common.people')}
+                  {room.floor ? ` · ชั้น ${room.floor}` : ''}
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
 
       <div ref={scrollRef} className="calendar-scroll flex-1 overflow-y-auto">
         <div className="relative flex" style={{ height: gridHeight }}>
           {/* แกนเวลา */}
-          <div className="sticky start-0 z-20 w-14 shrink-0 bg-ink-50 sm:w-16">
+          <div className="sticky start-0 z-20 w-14 shrink-0 bg-ink-50/95 sm:w-16">
             {hours.map((hour) => (
               <div
                 key={hour.minutes}
-                className="absolute -translate-y-1/2 pe-2 text-end text-[0.6875rem] tabular-nums text-ink-500"
+                className="absolute -translate-y-1/2 pe-2 text-end text-[0.6875rem] font-semibold tabular-nums text-ink-600"
                 style={{ top: ((hour.minutes - window.openMinutes) / 60) * HOUR_PX, width: '100%' }}
               >
                 {hour.label}
@@ -220,11 +283,25 @@ export function DayView({
           )}
         </div>
       </div>
+      <OccupancyLegend />
       {nowMinutes !== null && (
         <p className="sr-only" aria-live="off">
           {t('calendar.now')} {minutesToHhmm(nowMinutes)}
         </p>
       )}
     </div>
+  );
+}
+
+/** จอแคบกว่า 640px (มือถือ) — ตอน render ฝั่ง server ถือว่าไม่ใช่มือถือ แล้วค่อยปรับหลังโหลด */
+function useIsNarrow(): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      const mq = window.matchMedia('(max-width: 639px)');
+      mq.addEventListener('change', notify);
+      return () => mq.removeEventListener('change', notify);
+    },
+    () => window.matchMedia('(max-width: 639px)').matches,
+    () => false,
   );
 }

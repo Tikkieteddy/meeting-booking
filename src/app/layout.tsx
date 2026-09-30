@@ -61,7 +61,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={brandFont.variable}>
-      <body className="min-h-dvh bg-ink-50 text-ink-800 antialiased">
+      <body className="min-h-dvh text-ink-800 antialiased">
         <ToastProvider>{children}</ToastProvider>
         <RegisterServiceWorker />
       </body>

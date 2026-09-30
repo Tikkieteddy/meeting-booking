@@ -8,7 +8,8 @@ import { cx } from '@/components/ui/primitives';
 import { t } from '@/lib/i18n';
 import { addDaysISO, formatThaiDateShort, minutesToHhmm, partsInZone, thaiWeekday, toDateISO, weekdayOfISO } from '@/lib/util/time';
 import { BookingCard } from './booking-card';
-import { HOUR_PX, TZ, cardGeometry, hourLabels, minutesOfDay, timeWindow } from './shared';
+import { HOUR_PX, OCCUPANCY_DOT, TZ, cardGeometry, hourLabels, minutesOfDay, occupancyOf, timeWindow } from './shared';
+import { OccupancyLegend } from './legend';
 
 /**
  * มุมมองรายสัปดาห์ (บรีฟข้อ 3.2)
@@ -60,25 +61,38 @@ export function WeekView({
       <div className="calendar-scroll flex-1 overflow-auto">
         <div className="min-w-[44rem]">
           {/* หัววัน — คงที่เมื่อเลื่อนขึ้นลง */}
-          <div className="sticky top-0 z-30 flex border-b border-ink-200 bg-white">
+          <div className="sticky top-0 z-30 flex border-b border-ink-200 bg-brand-50/95">
             <div className="w-14 shrink-0 sm:w-16" />
             {days.map((dateISO) => {
               const isToday = dateISO === todayISO;
               const holiday = holidayMap.get(dateISO);
+              const level = occupancyOf(
+                bookings.filter((b) => toDateISO(new Date(b.startsAt), TZ) === dateISO),
+                window,
+              );
               return (
                 <div
                   key={dateISO}
-                  className={cx(
-                    'min-w-24 flex-1 border-s border-ink-100 px-1 py-2 text-center',
-                    isToday && 'bg-brand-50',
-                  )}
+                  className={cx('min-w-24 flex-1 border-s border-ink-200/70 px-1 py-2 text-center', isToday && 'bg-brand-100/60')}
                 >
-                  <p className={cx('text-[0.6875rem] font-medium', isToday ? 'text-brand-700' : 'text-ink-500')}>
-                    {thaiWeekday(weekdayOfISO(dateISO), true)}
+                  <p className={cx('text-xs font-medium', isToday ? 'font-bold text-brand-800' : 'text-ink-700')}>
+                    {thaiWeekday(weekdayOfISO(dateISO))}
                   </p>
-                  <p className={cx('text-sm font-semibold tabular-nums', isToday ? 'text-brand-700' : 'text-ink-800')}>
-                    {formatThaiDateShort(dateISO)}
+                  {/* วันที่: วันนี้เป็นวงกลมส้มตามแบบ ตัวเลขขาวบนส้มเข้ม (ผ่าน AA) */}
+                  <p className="mt-1 flex justify-center">
+                    <span
+                      className={cx(
+                        'flex size-9 items-center justify-center rounded-full text-sm font-bold tabular-nums',
+                        isToday ? 'bg-brand-500 text-white shadow-sm' : 'text-ink-900',
+                      )}
+                      title={formatThaiDateShort(dateISO)}
+                    >
+                      {Number(dateISO.slice(8, 10))}
+                    </span>
                   </p>
+                  {isToday && <span className="sr-only">{t('common.today')}</span>}
+                  <span aria-hidden="true" className={cx('mx-auto mt-1.5 block h-1 w-6 rounded-full', OCCUPANCY_DOT[level])} />
+                  <span className="sr-only">{t(`occupancy.${level}` as 'occupancy.free')}</span>
                   {holiday && (
                     <p className="truncate text-[0.625rem] text-red-600" title={holiday}>
                       🎌 {t('calendar.holiday')}
@@ -90,11 +104,11 @@ export function WeekView({
           </div>
 
           <div className="relative flex" style={{ height: gridHeight }}>
-            <div className="sticky start-0 z-20 w-14 shrink-0 bg-ink-50 sm:w-16">
+            <div className="sticky start-0 z-20 w-14 shrink-0 bg-ink-50/95 sm:w-16">
               {hours.map((hour) => (
                 <div
                   key={hour.minutes}
-                  className="absolute -translate-y-1/2 pe-2 text-end text-[0.6875rem] tabular-nums text-ink-500"
+                  className="absolute -translate-y-1/2 pe-2 text-end text-[0.6875rem] font-semibold tabular-nums text-ink-600"
                   style={{ top: ((hour.minutes - window.openMinutes) / 60) * HOUR_PX, width: '100%' }}
                 >
                   {hour.label}
@@ -180,7 +194,7 @@ export function WeekView({
                         <BookingCard
                           booking={booking}
                           onOpen={onOpenBooking}
-                          compact
+                          compact={geo.height < 44}
                           showRoom={!selectedRoomId}
                           roomName={rooms.find((r) => r.id === booking.roomId)?.name}
                           style={{ position: 'relative', height: '100%' }}
@@ -203,6 +217,21 @@ export function WeekView({
           </div>
         </div>
       </div>
+      <div className="flex flex-wrap items-center justify-between border-t border-ink-200/70">
+        <OccupancyLegend className="border-t-0" />
+        <p className="px-4 py-2.5 text-xs text-ink-700 sm:px-6">
+          {t('calendar.weekStats', { count: bookings.length, hours: formatHours(totalMinutes(bookings)) })}
+        </p>
+      </div>
     </div>
   );
+}
+
+function totalMinutes(list: readonly CalendarBooking[]): number {
+  return list.reduce((sum, b) => sum + Math.max(0, (Date.parse(b.endsAt) - Date.parse(b.startsAt)) / 60000), 0);
+}
+
+function formatHours(minutes: number): string {
+  const hours = Math.round((minutes / 60) * 10) / 10;
+  return Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
 }

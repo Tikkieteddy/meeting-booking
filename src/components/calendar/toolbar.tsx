@@ -5,7 +5,7 @@ import { MapLink } from '@/components/ui/map-link';
 import type { Room } from '@/lib/domain/rooms';
 import { Button, cx } from '@/components/ui/primitives';
 import { t } from '@/lib/i18n';
-import { formatThaiDate, formatThaiMonth } from '@/lib/util/time';
+import { addDaysISO, formatThaiDate, formatThaiMonth, startOfWeekISO, thaiWeekday, weekdayOfISO } from '@/lib/util/time';
 
 /**
  * แถบเครื่องมือของหน้าปฏิทิน (บรีฟข้อ 1 และ 2)
@@ -61,57 +61,77 @@ export function CalendarToolbar({
     onDateChange(parts);
   };
 
+  // ป้ายช่วงเวลาที่แสดง: "ศุกร์ 12 กันยายน 2568" / "8 – 14 กันยายน 2568" / "กันยายน 2568"
+  const periodText =
+    view === 'month'
+      ? formatThaiMonth(dateISO)
+      : view === 'week'
+        ? weekRangeLabel(dateISO)
+        : `${thaiWeekday(weekdayOfISO(dateISO))} ${periodLabel}`;
+
+  const iconButton =
+    'flex size-10 shrink-0 items-center justify-center rounded-lg text-ink-700 hover:bg-ink-100 focus-visible:bg-ink-100';
+
   return (
-    <div className="shrink-0 border-t border-ink-100 bg-white">
-      {/* แถวที่ 1: วันที่ · ห้อง · ค้นหา */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 sm:px-5">
-        <div data-tour="datenav" className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => shift(-1)}
-            aria-label={t('common.previous')}
-            className="flex size-10 items-center justify-center rounded-xl text-ink-600 hover:bg-ink-100"
-          >
+    <div className="shrink-0 border-b border-ink-200/70 px-3 pb-3 pt-3 sm:px-6 sm:pt-5">
+      {/* แถวที่ 1: ชื่อระบบ · วันที่ · ห้อง · สวิตช์มุมมอง (ตามแบบจาก Stitch) */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="me-2 hidden flex-col xl:flex">
+          <p className="text-xl font-bold leading-tight text-ink-900">{t('calendar.title')}</p>
+          <p className="text-xs text-ink-600">{t('calendar.subtitle')}</p>
+        </div>
+
+        {/* เลือกวันที่: กดที่ป้ายวันที่เพื่อเปิดปฏิทินของเครื่อง */}
+        <div
+          data-tour="datenav"
+          className="flex h-12 w-full items-center gap-0.5 rounded-xl border border-ink-200 bg-white px-1 shadow-sm focus-within:ring-2 focus-within:ring-brand-500/40 sm:w-auto"
+        >
+          <button type="button" onClick={() => shift(-1)} aria-label={t('common.previous')} className={iconButton}>
             <span aria-hidden="true">‹</span>
+          </button>
+          <div className="relative flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-2 hover:bg-ink-50 sm:flex-none">
+            <span aria-hidden="true" className="text-brand-500">
+              📅
+            </span>
+            <span aria-live="polite" className="truncate whitespace-nowrap text-sm font-semibold text-ink-900">
+              {periodText}
+            </span>
+            <label className="sr-only" htmlFor="calendar-date">
+              {t('search.date')}
+            </label>
+            {/* ช่องวันที่จริงวางทับป้ายแบบโปร่งใส — คลิกแล้วเปิดตัวเลือกวันที่ของเครื่อง พิมพ์ด้วยคีย์บอร์ดได้ */}
+            <input
+              id="calendar-date"
+              type="date"
+              value={dateISO}
+              onChange={(event) => event.target.value && onDateChange(event.target.value)}
+              onClick={(event) => {
+                try {
+                  event.currentTarget.showPicker?.();
+                } catch {
+                  // เบราว์เซอร์เก่าไม่มี showPicker — ยังพิมพ์วันที่ได้ตามปกติ
+                }
+              }}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            />
+          </div>
+          <button type="button" onClick={() => shift(1)} aria-label={t('common.next')} className={iconButton}>
+            <span aria-hidden="true">›</span>
           </button>
           <button
             type="button"
             onClick={today}
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm font-medium text-ink-700 hover:bg-ink-50"
+            className="ms-1 h-9 shrink-0 whitespace-nowrap rounded-lg bg-ink-100 px-3 text-sm font-medium text-ink-800 hover:bg-ink-200"
           >
             {t('common.today')}
           </button>
-          <button
-            type="button"
-            onClick={() => shift(1)}
-            aria-label={t('common.next')}
-            className="flex size-10 items-center justify-center rounded-xl text-ink-600 hover:bg-ink-100"
-          >
-            <span aria-hidden="true">›</span>
-          </button>
-        </div>
-
-        <div className="flex min-w-40 flex-col">
-          <span aria-live="polite" className="text-sm font-semibold text-ink-900">
-            {periodLabel}
-          </span>
-          <label className="sr-only" htmlFor="calendar-date">
-            {t('search.date')}
-          </label>
-          <input
-            id="calendar-date"
-            type="date"
-            value={dateISO}
-            onChange={(event) => event.target.value && onDateChange(event.target.value)}
-            className="w-36 rounded-lg border border-ink-200 px-2 py-0.5 text-xs text-ink-600"
-          />
         </div>
 
         {/* เลือกห้อง พร้อมรูปห้อง */}
-        <div className="flex items-center gap-2">
+        <div className="flex h-12 min-w-0 basis-full items-center gap-2 rounded-xl border border-ink-200 bg-white ps-1.5 pe-2 shadow-sm sm:max-w-sm sm:basis-auto sm:flex-1 lg:flex-none">
           <span
             aria-hidden="true"
-            className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-ink-100 text-base"
+            className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink-100 text-base"
             style={selectedRoom?.photos[0] ? { backgroundImage: `url(${selectedRoom.photos[0]})`, backgroundSize: 'cover' } : undefined}
           >
             {!selectedRoom?.photos[0] && (selectedRoom ? '🚪' : '🏢')}
@@ -124,7 +144,7 @@ export function CalendarToolbar({
             id="room-picker"
             value={selectedRoomId ?? ''}
             onChange={(event) => onRoomChange(event.target.value || null)}
-            className="h-10 max-w-52 rounded-xl border border-ink-200 bg-white px-2 text-sm text-ink-800"
+            className="h-10 min-w-0 flex-1 cursor-pointer rounded-lg bg-transparent pe-1 text-sm font-semibold text-ink-900 focus:outline-none"
           >
             <option value="">{t('calendar.allRooms')}</option>
             {rooms.map((room) => (
@@ -133,36 +153,15 @@ export function CalendarToolbar({
               </option>
             ))}
           </select>
-          <MapLink href={selectedRoom?.mapLink} compact className="hidden sm:inline-flex" />
+          <MapLink href={selectedRoom?.mapLink} compact className="hidden shrink-0 sm:inline-flex" />
         </div>
 
-        <div className="order-last flex w-full items-center gap-2 sm:order-none sm:ms-auto sm:w-auto">
-          <label className="sr-only" htmlFor="calendar-search">
-            {t('common.search')}
-          </label>
-          <div data-tour="search" className="relative flex-1 sm:w-72">
-            <input
-              id="calendar-search"
-              type="search"
-              value={searchValue}
-              onChange={(event) => onSearchChange(event.target.value)}
-              onFocus={onOpenSearch}
-              placeholder={t('search.placeholder')}
-              className="h-10 w-full rounded-xl border border-ink-200 bg-white ps-9 pe-3 text-sm"
-            />
-            <span aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-ink-400">
-              🔍
-            </span>
-          </div>
-          <Button variant="secondary" size="md" onClick={onOpenSearch} className="shrink-0">
-            {t('search.advanced')}
-          </Button>
-        </div>
-      </div>
-
-      {/* แถวที่ 2: สวิตช์มุมมอง · ปุ่มจอง */}
-      <div className="flex items-center gap-2 border-t border-ink-100 px-3 py-2 sm:px-5">
-        <div data-tour="views" role="tablist" aria-label={t('view.switchLabel')} className="flex rounded-xl bg-ink-100 p-1">
+        <div
+          data-tour="views"
+          role="tablist"
+          aria-label={t('view.switchLabel')}
+          className="flex w-full rounded-xl bg-ink-100 p-1 sm:ms-auto sm:w-auto"
+        >
           {(['day', 'week', 'month'] as CalendarView[]).map((item) => (
             <button
               key={item}
@@ -172,31 +171,63 @@ export function CalendarToolbar({
               aria-label={t(`view.${item}Aria` as 'view.dayAria')}
               onClick={() => onViewChange(item)}
               className={cx(
-                'h-9 min-w-16 rounded-lg px-3 text-sm font-medium transition-colors',
-                view === item ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-600 hover:text-ink-800',
+                'h-10 min-w-16 flex-1 rounded-lg px-3 text-sm font-semibold transition-colors sm:flex-none',
+                view === item ? 'bg-brand-500 text-white shadow-sm' : 'text-ink-700 hover:bg-white/70',
               )}
             >
               {t(`view.${item}` as 'view.day')}
             </button>
           ))}
         </div>
+      </div>
+
+      {/* แถวที่ 2: ปุ่มจอง · ค้นหา · ตัวกรอง */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
+        {canBook && (
+          <Button data-tour="bookbutton" onClick={onOpenBooking} size="md" className="shadow-md">
+            <span aria-hidden="true">＋</span>
+            <span className="hidden sm:inline">{t('calendar.bookButton')}</span>
+            <span className="sm:hidden">จอง</span>
+          </Button>
+        )}
+
+        <label className="sr-only" htmlFor="calendar-search">
+          {t('common.search')}
+        </label>
+        <div data-tour="search" className="relative min-w-0 flex-1 sm:max-w-md">
+          <input
+            id="calendar-search"
+            type="search"
+            value={searchValue}
+            onChange={(event) => onSearchChange(event.target.value)}
+            onFocus={onOpenSearch}
+            placeholder={t('search.placeholder')}
+            className="h-11 w-full rounded-xl border border-ink-200 bg-white ps-10 pe-3 text-sm shadow-sm"
+          />
+          <span aria-hidden="true" className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-sm">
+            🔍
+          </span>
+        </div>
+        <Button variant="secondary" size="md" onClick={onOpenSearch} className="shrink-0">
+          {t('search.advanced')}
+        </Button>
 
         {loading && (
-          <span role="status" className="text-xs text-ink-500">
+          <span role="status" className="text-xs text-ink-600">
             {t('common.loading')}
           </span>
         )}
-
-        <div className="ms-auto flex items-center gap-2">
-          {canBook && (
-            <Button data-tour="bookbutton" onClick={onOpenBooking} size="md">
-              <span aria-hidden="true">＋</span>
-              <span className="hidden sm:inline">{t('calendar.bookButton')}</span>
-              <span className="sm:hidden">จอง</span>
-            </Button>
-          )}
-        </div>
       </div>
     </div>
   );
+}
+
+/** "8 – 14 กันยายน 2568" (ถ้าข้ามเดือน: "29 กันยายน – 5 ตุลาคม 2568") สัปดาห์เริ่มวันจันทร์ */
+function weekRangeLabel(dateISO: string): string {
+  const start = startOfWeekISO(dateISO, 1);
+  const end = addDaysISO(start, 6);
+  const a = formatThaiDate(start);
+  const b = formatThaiDate(end);
+  if (start.slice(0, 7) === end.slice(0, 7)) return `${Number(start.slice(8, 10))} – ${b}`;
+  return `${a.replace(/ \d+$/, '')} – ${b}`;
 }
