@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_REMINDERS, MAX_REMINDER_MINUTES, normalizeReminderLeads } from '@/lib/domain/reminders';
 
 /**
  * Schema validation ที่ใช้ร่วมกันทั้งฝั่ง API และฟอร์ม (บรีฟข้อ 15)
@@ -64,6 +65,12 @@ const timeHHmm = z
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'รูปแบบเวลาต้องเป็น HH:mm เช่น 13:30');
 const dateISO = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'รูปแบบวันที่ต้องเป็น YYYY-MM-DD');
 
+/** เวลาเตือนก่อนประชุม — ตัดค่าซ้ำและเรียงให้ ขอบเขตตรงกับ CHECK ในฐานข้อมูล */
+const reminderLeadsSchema = z
+  .array(z.coerce.number().int().min(0).max(MAX_REMINDER_MINUTES, 'เตือนล่วงหน้าได้ไม่เกิน 1 สัปดาห์'))
+  .refine((leads) => new Set(leads).size <= MAX_REMINDERS, `ตั้งเตือนได้ไม่เกิน ${MAX_REMINDERS} ครั้ง`)
+  .transform((leads) => normalizeReminderLeads(leads));
+
 export const recurrenceSchema = z.object({
   frequency: z.enum(['daily', 'weekly', 'monthly']),
   intervalCount: z.coerce.number().int().min(1).max(12).default(1),
@@ -99,6 +106,8 @@ export const createBookingSchema = z.object({
   recurrence: recurrenceSchema.optional().nullable(),
   idempotencyKey: z.string().max(120).optional().nullable(),
   overrideReason: safeText(300, 'เหตุผล').optional().nullable(),
+  // เวลาเตือนก่อนประชุมของผู้จองสำหรับการจองนี้ (นาที, 0 = ตอนเริ่ม) — ไม่ส่งมา = ใช้ค่าตั้งส่วนตัว
+  reminderLeads: reminderLeadsSchema.optional().nullable(),
 });
 
 export const updateBookingSchema = createBookingSchema
@@ -214,7 +223,7 @@ export const notificationPreferenceSchema = z.object({
   emailEnabled: z.coerce.boolean(),
   lineEnabled: z.coerce.boolean(),
   inAppEnabled: z.coerce.boolean(),
-  reminderLeads: z.array(z.coerce.number().int().min(0).max(10080)).max(5),
+  reminderLeads: reminderLeadsSchema,
 });
 
 export const profileSchema = z.object({

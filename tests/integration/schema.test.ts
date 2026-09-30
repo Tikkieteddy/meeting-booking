@@ -226,3 +226,18 @@ describe('ตำแหน่งบนแผนที่ (migration 009)', () => 
     ).rejects.toThrow(/buildings_map_url_https/);
   });
 });
+
+describe('เวลาเตือนแยกตามการจอง (migration 010)', () => {
+  it('ฐานข้อมูลปฏิเสธเวลาเตือนเกิน 5 ครั้ง ติดลบ หรือเกิน 1 สัปดาห์ แม้โค้ดจะพลาด', async () => {
+    await resetTransactionalData();
+    const { id } = await insertBooking({ roomId: world.rooms.simple, bookerId: world.users.employee.id, start: '09:00', end: '10:00' });
+    const setLeads = (leads: number[] | null) =>
+      withServiceTx((sql) => sql.query('UPDATE bookings SET reminder_leads = $2 WHERE id = $1', [id, leads]));
+
+    await expect(setLeads([10080, 60, 0])).resolves.toBeDefined();
+    await expect(setLeads(null)).resolves.toBeDefined();
+    for (const bad of [[1, 2, 3, 4, 5, 6], [-1], [10081]]) {
+      await expect(setLeads(bad)).rejects.toThrow(/bookings_reminder_leads_valid/);
+    }
+  });
+});

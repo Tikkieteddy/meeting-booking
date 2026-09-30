@@ -5,6 +5,9 @@ import { getSessionUser } from '@/lib/auth/current-user';
 import { getBookingDetail } from '@/lib/domain/booking-service';
 import { StatusBadge } from '@/components/ui/primitives';
 import { BookingActions } from '@/components/booking/booking-actions';
+import { BookingReminders } from '@/components/booking/booking-reminders';
+import { withTx } from '@/lib/db/pool';
+import { DEFAULT_REMINDER_LEADS } from '@/lib/domain/reminders';
 import { t } from '@/lib/i18n';
 import { formatThaiDate, formatTimeRange } from '@/lib/util/time';
 import { isWithinCheckInWindow } from '@/lib/domain/booking-rules';
@@ -22,6 +25,19 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   const isOwner = detail.bookerProfileId === user.id;
   const isManager = user.permissions.includes('booking:manage_all');
   const editable = !['cancelled', 'rejected', 'completed'].includes(detail.status);
+  // ผู้จองแก้เวลาเตือนของตัวเองได้จนกว่าประชุมจะเริ่ม — การจองเก่าที่ไม่ได้เลือกไว้ แสดงค่าตั้งส่วนตัว
+  const canEditReminders = isOwner && ['confirmed', 'pending'].includes(detail.status) && detail.startsAt.getTime() > Date.now();
+  const reminderLeads =
+    detail.reminderLeads ??
+    (canEditReminders
+      ? await withTx({ userId: user.id, role: 'authenticated' }, async (sql) => {
+          const res = await sql.query<{ reminder_leads: number[] }>(
+            'SELECT reminder_leads FROM notification_preferences WHERE profile_id = $1',
+            [user.id],
+          );
+          return res.rows[0]?.reminder_leads ?? DEFAULT_REMINDER_LEADS;
+        })
+      : []);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 overflow-y-auto p-4 sm:p-6">
@@ -64,6 +80,10 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
             ))}
           </ul>
         </section>
+      )}
+
+      {canEditReminders && (
+        <BookingReminders bookingId={detail.id} version={detail.version} initialLeads={reminderLeads} />
       )}
 
       <BookingActions

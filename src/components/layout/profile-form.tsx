@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Checkbox, Field, Input, Select, cx } from '@/components/ui/primitives';
+import { ReminderEditor } from '@/components/ui/reminder-editor';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
@@ -21,14 +22,6 @@ type Props = {
   preferences: { emailEnabled: boolean; lineEnabled: boolean; inAppEnabled: boolean; reminderLeads: number[] };
   lineLink: { status: string; linkedAt: string | null } | null;
 };
-
-const REMINDER_OPTIONS = [
-  { minutes: 1440, label: '24 ชั่วโมงก่อน' },
-  { minutes: 120, label: '2 ชั่วโมงก่อน' },
-  { minutes: 60, label: '1 ชั่วโมงก่อน' },
-  { minutes: 15, label: '15 นาทีก่อน' },
-  { minutes: 5, label: '5 นาทีก่อน' },
-];
 
 /** หน้าโปรไฟล์: ข้อมูลส่วนตัว รหัสผ่าน การแจ้งเตือน และการเชื่อม LINE */
 export function ProfileForm({ profile, preferences, lineLink }: Props) {
@@ -251,24 +244,13 @@ export function ProfileForm({ profile, preferences, lineLink }: Props) {
             />
           </fieldset>
 
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium text-ink-700">{t('notify.reminderLead')}</legend>
-            {REMINDER_OPTIONS.map((option) => (
-              <Checkbox
-                key={option.minutes}
-                label={option.label}
-                checked={prefs.reminderLeads.includes(option.minutes)}
-                onChange={(event) =>
-                  setPrefs({
-                    ...prefs,
-                    reminderLeads: event.target.checked
-                      ? [...prefs.reminderLeads, option.minutes].sort((a, b) => b - a)
-                      : prefs.reminderLeads.filter((m) => m !== option.minutes),
-                  })
-                }
-              />
-            ))}
-          </fieldset>
+          <ReminderEditor
+            id="pref-reminders"
+            legend={t('notify.reminderLead')}
+            hint={t('reminder.defaultHint')}
+            value={prefs.reminderLeads}
+            onChange={(reminderLeads) => setPrefs({ ...prefs, reminderLeads })}
+          />
 
           <Button
             loading={busy}

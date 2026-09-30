@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapLink } from '@/components/ui/map-link';
 import { AttendeePicker, type AttendeeChip } from './attendee-picker';
+import { ReminderEditor } from '@/components/ui/reminder-editor';
 import type { Room, Amenity } from '@/lib/domain/rooms';
 import { Button, Checkbox, Field, Input, Select, Textarea, cx } from '@/components/ui/primitives';
 import { Overlay } from '@/components/ui/overlay';
@@ -48,12 +49,29 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
   const [untilDate, setUntilDate] = useState('');
   const [occurrenceCount, setOccurrenceCount] = useState(4);
   const [overrideReason, setOverrideReason] = useState('');
+  // เวลาเตือนของการจองนี้ — เริ่มจากค่าตั้งส่วนตัว null = ยังโหลดไม่เสร็จ (ส่งไปไม่ได้ ระบบจะใช้ค่าตั้งส่วนตัวเอง)
+  const [reminderLeads, setReminderLeads] = useState<number[] | null>(null);
   // เวลาสิ้นสุดที่ผู้ใช้เลือกเอง — null = ใช้ค่าเริ่มต้น (เริ่ม + ระยะขั้นต่ำของห้อง)
   const [chosenEndTime, setChosenEndTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [idempotencyKey] = useState(() => `bk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+
+  useEffect(() => {
+    if (!open || reminderLeads !== null) return;
+    let cancelled = false;
+    apiFetch<{ preferences: { reminderLeads: number[] } }>('/api/notifications/preferences')
+      .then((res) => {
+        if (!cancelled) setReminderLeads(res.preferences.reminderLeads);
+      })
+      .catch(() => {
+        // โหลดไม่ได้ก็ไม่เป็นไร — ไม่ส่งค่าไป ระบบใช้ค่าตั้งส่วนตัวแทน
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, reminderLeads]);
 
   const room = rooms.find((r) => r.id === roomId) ?? rooms[0];
   const slots = useMemo(() => (room ? timeSlots(room.policy) : []), [room]);
@@ -95,6 +113,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         privacy,
         idempotencyKey,
         overrideReason: overrideReason || null,
+        ...(reminderLeads !== null ? { reminderLeads } : {}),
         recurrence: recurrenceOn
           ? {
               frequency,
@@ -252,6 +271,9 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         <Field label={t('booking.attendees')} htmlFor="bk-attendees">
           <AttendeePicker id="bk-attendees" value={attendees} onChange={setAttendees} error={fieldErrors.attendees} />
         </Field>
+
+        {reminderLeads !== null && <ReminderEditor id="bk-reminders" value={reminderLeads} onChange={setReminderLeads} />}
+        {fieldErrors.reminderLeads && <p className="text-xs text-red-700">{fieldErrors.reminderLeads}</p>}
 
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-medium text-ink-700">{t('booking.resources')}</legend>

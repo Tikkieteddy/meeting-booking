@@ -73,8 +73,11 @@ export function enqueueStandalone(input: EnqueueInput): Promise<string | null> {
 /** ยกเลิกงานที่ยังไม่ถูกส่งของการจองหนึ่ง (เช่น ยกเลิกประชุมแล้วไม่ต้องเตือนอีก) */
 export async function cancelPendingJobs(sql: Sql, bookingId: string, events?: NotificationEvent[]): Promise<number> {
   const res = await asService(sql, () => sql.query(
+    // ปล่อย dedupe_key คืน (ต่อท้ายด้วย id) เพื่อให้ตั้งงานเดิมใหม่ได้ เช่น แก้การแจ้งเตือนแล้ว
+    // ยังมีเวลาเตือนเดิมอยู่ — ถ้าไม่ปล่อย INSERT ... ON CONFLICT DO NOTHING จะข้ามเงียบ ๆ และเตือนหาย
     `UPDATE notification_jobs
-        SET status = 'skipped', last_error = 'ยกเลิกเพราะการจองเปลี่ยนสถานะ'
+        SET status = 'skipped', last_error = 'ยกเลิกเพราะการจองเปลี่ยนสถานะ',
+            dedupe_key = dedupe_key || '|cancelled|' || id::text
       WHERE booking_id = $1
         AND status = 'queued'
         ${events ? 'AND event_type = ANY($2)' : ''}`,

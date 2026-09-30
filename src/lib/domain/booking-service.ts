@@ -9,6 +9,7 @@ import { logger } from '@/lib/util/logger';
 import { blockedHolidayDates, findClosureConflict, getRoomWith, type Room } from './rooms';
 import { blockedRange, canCancel, isWithinCheckInWindow, validateBookingRequest, type RoomPolicy } from './booking-rules';
 import { expandRecurrence, type RecurrenceRule } from './recurrence';
+import { DEFAULT_REMINDER_LEADS, reminderSubject } from './reminders';
 import { ConflictError, DomainError, ForbiddenError, NotFoundError, ValidationError, PG_ERROR, pgErrorCode } from './errors';
 import { newToken } from '@/lib/auth/tokens';
 
@@ -54,6 +55,8 @@ export type CreateBookingInput = {
   idempotencyKey?: string | null;
   /** ผู้ดูแลระบบข้ามข้อจำกัดได้ ต้องระบุเหตุผลและถูกบันทึกลง audit log */
   overrideReason?: string | null;
+  /** เวลาเตือนของผู้จองสำหรับการจองนี้ (นาทีก่อนเริ่ม, 0 = ตอนเริ่ม) — ไม่ระบุ = ใช้ค่าตั้งส่วนตัว */
+  reminderLeads?: number[] | null;
 };
 
 export type BookingRecord = {
@@ -75,6 +78,8 @@ export type BookingRecord = {
   attendeeCount: number;
   version: number;
   checkedInAt: Date | null;
+  /** เวลาเตือนของผู้จองสำหรับการจองนี้ (นาที) — null = ใช้ค่าตั้งส่วนตัวของผู้จอง */
+  reminderLeads: number[] | null;
 };
 
 const ACTIVE_STATUSES: BookingStatus[] = ['pending', 'confirmed', 'checked_in'];
@@ -355,12 +360,14 @@ async function scheduleRemindersForAll(
   bookingId: string,
   profileIds: (string | null | undefined)[],
   booking: { title: string; startsAt: Date; endsAt: Date; roomName: string; roomMapLink?: string | null },
+  /** เวลาเตือนที่ผู้จองเลือกไว้กับการจองนี้ — ใช้แทนค่าตั้งส่วนตัวของผู้จองเท่านั้น ผู้เข้าร่วมใช้ค่าของตัวเอง */
+  booker?: { profileId: string; leads: number[] | null },
 ) {
   const seen = new Set<string>();
   for (const id of profileIds) {
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    await scheduleReminders(sql, bookingId, id, booking);
+    await scheduleReminders(sql, bookingId, id, booking, booker && booker.profileId === id ? booker.leads : null);
   }
 }
 
@@ -369,23 +376,30 @@ async function scheduleReminders(
   bookingId: string,
   profileId: string,
   booking: { title: string; startsAt: Date; endsAt: Date; roomName: string; roomMapLink?: string | null },
+  /** เวลาเตือนที่เลือกไว้กับการจองนี้ — null = ใช้ค่าตั้งส่วนตัว (ช่องทาง LINE/อีเมลยังมาจากค่าตั้งส่วนตัวเสมอ) */
+  leadsOverride: number[] | null = null,
 ) {
-  // อ่านค่าตั้งการแจ้งเตือนของ "ผู้จอง" ซึ่งอาจไม่ใช่ผู้ที่กำลังทำรายการ (เช่น ผู้อนุมัติกดอนุมัติ)
+  // อ่านค่าตั้งการแจ้งเตือนของ "ผู้รับ" ซึ่งอาจไม่ใช่ผู้ที่กำลังทำรายการ (เช่น ผู้อนุมัติกดอนุมัติ)
   const prefRes = await asService(sql, () =>
     sql.query<{ reminder_leads: number[]; email_enabled: boolean; line_enabled: boolean }>(
       'SELECT reminder_leads, email_enabled, line_enabled FROM notification_preferences WHERE profile_id = $1',
       [profileId],
     ),
   );
-  const pref = prefRes.rows[0] ?? { reminder_leads: [1440, 15], email_enabled: true, line_enabled: false };
+  const pref = prefRes.rows[0] ?? { reminder_leads: DEFAULT_REMINDER_LEADS, email_enabled: true, line_enabled: false };
+  const leads = leadsOverride ?? pref.reminder_leads ?? [];
   const when = `${formatThaiDate(toDateISO(booking.startsAt, timezoneOf()))} ${formatTimeRange(booking.startsAt, booking.endsAt, timezoneOf())}`;
 
-  for (const lead of pref.reminder_leads ?? []) {
+  for (const lead of leads) {
     const scheduledFor = new Date(booking.startsAt.getTime() - lead * 60_000);
+    // เวลาเตือนผ่านไปแล้ว (เช่น จองประชุมที่เริ่มในอีก 10 นาทีแต่ตั้งเตือน 1 ชั่วโมงก่อน) — ข้าม
+    // ยกเว้นเตือนตอนเริ่ม ถ้ายังไม่ถึงเวลาเริ่มก็ยังตั้งได้
     if (scheduledFor.getTime() <= Date.now()) continue;
+    const subject = reminderSubject(lead, booking.title);
     const payload = {
-      subject: `เตือนประชุม: ${booking.title}`,
-      text: `ห้อง ${booking.roomName}\n${when}${booking.roomMapLink ? `\nแผนที่: ${booking.roomMapLink}` : ''}`,
+      subject,
+      // บรรทัดแรกซ้ำหัวข้อ เพราะหัวข้อความ LINE/อีเมลของเหตุการณ์ booking.reminder เป็นข้อความตายตัว
+      text: `${subject}\nห้อง ${booking.roomName}\n${when}${booking.roomMapLink ? `\nแผนที่: ${booking.roomMapLink}` : ''}`,
       link: bookingLink(bookingId),
       data: { lead: String(lead) },
     };
@@ -452,8 +466,8 @@ export async function createBooking(
                                buffer_before_minutes, buffer_after_minutes, status, privacy,
                                booker_profile_id, booker_name, booker_email, booker_department,
                                attendee_count, capacity_override_reason, check_in_token,
-                               idempotency_key, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$12)
+                               idempotency_key, created_by, reminder_leads)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$12,$20)
          RETURNING id`,
         [
           actor.organizationId,
@@ -475,6 +489,7 @@ export async function createBooking(
           input.overrideReason ?? null,
           room.policy.checkInRequired ? newToken(12) : null,
           input.idempotencyKey ?? null,
+          input.reminderLeads ?? null,
         ],
       );
       bookingId = res.rows[0]!.id;
@@ -537,13 +552,13 @@ export async function createBooking(
     );
     if (status === 'confirmed') {
       // ผู้จอง + ผู้เข้าร่วมคนใน ได้เตือนก่อนประชุมตามค่าที่แต่ละคนตั้งไว้
-      await scheduleRemindersForAll(sql, bookingId, [actor.profileId, ...attendeeProfileIds], {
-        title: input.title,
-        startsAt,
-        endsAt,
-        roomName: room.name,
-        roomMapLink: room.mapLink,
-      });
+      await scheduleRemindersForAll(
+        sql,
+        bookingId,
+        [actor.profileId, ...attendeeProfileIds],
+        { title: input.title, startsAt, endsAt, roomName: room.name, roomMapLink: room.mapLink },
+        { profileId: actor.profileId, leads: input.reminderLeads ?? null },
+      );
     }
 
     await writeAudit(sql, {
@@ -628,6 +643,7 @@ export async function getBookingRecord(sql: Sql, bookingId: string): Promise<Boo
     attendee_count: number;
     version: number;
     checked_in_at: Date | null;
+    reminder_leads: number[] | null;
     map_url: string | null;
     latitude: number | null;
     longitude: number | null;
@@ -637,7 +653,7 @@ export async function getBookingRecord(sql: Sql, bookingId: string): Promise<Boo
   }>(
     `SELECT b.id, b.room_id, r.name AS room_name, b.title, b.starts_at, b.ends_at, b.status, b.privacy,
             b.series_id, b.booker_profile_id, b.booker_name, b.attendee_count, b.version, b.checked_in_at,
-            r.map_url, r.latitude, r.longitude,
+            b.reminder_leads, r.map_url, r.latitude, r.longitude,
             bd.map_url AS building_map_url, bd.latitude AS building_latitude, bd.longitude AS building_longitude
        FROM bookings b
        JOIN rooms r ON r.id = b.room_id
@@ -669,6 +685,7 @@ export async function getBookingRecord(sql: Sql, bookingId: string): Promise<Boo
     attendeeCount: row.attendee_count,
     version: row.version,
     checkedInAt: row.checked_in_at,
+    reminderLeads: row.reminder_leads,
   };
 }
 
@@ -770,7 +787,7 @@ export async function getBookingDetail(ctx: DbContext, bookingId: string): Promi
 // แก้ไข / ยกเลิก
 // ============================================================
 export type UpdateBookingInput = Partial<
-  Pick<CreateBookingInput, 'title' | 'purpose' | 'notes' | 'dateISO' | 'startTime' | 'endTime' | 'attendeeCount' | 'privacy' | 'attendees' | 'resources'>
+  Pick<CreateBookingInput, 'title' | 'purpose' | 'notes' | 'dateISO' | 'startTime' | 'endTime' | 'attendeeCount' | 'privacy' | 'attendees' | 'resources' | 'reminderLeads'>
 > & { expectedVersion: number };
 
 export async function updateBooking(
@@ -795,6 +812,12 @@ export async function updateBooking(
     const attendeeCount = input.attendeeCount ?? before.attendeeCount;
 
     const timeChanged = startsAt.getTime() !== before.startsAt.getTime() || endsAt.getTime() !== before.endsAt.getTime();
+    const remindersChanged = input.reminderLeads !== undefined;
+    const reminderLeads = remindersChanged ? (input.reminderLeads ?? null) : before.reminderLeads;
+    // แก้เฉพาะการแจ้งเตือนของตัวเอง ไม่ต้องแจ้ง "มีการแก้ไขการจอง" ไปหาทุกคน
+    const onlyReminders = Object.entries(input).every(
+      ([key, value]) => key === 'expectedVersion' || key === 'reminderLeads' || value === undefined,
+    );
     if (timeChanged) {
       await assertBookable(sql, actor, room, startsAt, endsAt, { attendeeCount }, bookingId);
     }
@@ -802,9 +825,14 @@ export async function updateBooking(
     try {
       const res = await sql.query(
         `UPDATE bookings
-            SET title = coalesce($2, title), purpose = $3, notes = $4,
+            SET title = coalesce($2, title),
+                -- ไม่ส่งฟิลด์มา = ไม่แก้ (เดิมตั้งเป็น NULL ทำให้การแก้เฉพาะบางฟิลด์ลบวัตถุประสงค์/หมายเหตุทิ้ง)
+                purpose = CASE WHEN $11 THEN $3 ELSE purpose END,
+                notes = CASE WHEN $12 THEN $4 ELSE notes END,
                 starts_at = $5, ends_at = $6, attendee_count = $7,
-                privacy = coalesce($8, privacy), version = version + 1, updated_by = $9
+                privacy = coalesce($8, privacy),
+                reminder_leads = CASE WHEN $13 THEN $14::int[] ELSE reminder_leads END,
+                version = version + 1, updated_by = $9
           WHERE id = $1 AND version = $10`,
         [
           bookingId,
@@ -817,6 +845,10 @@ export async function updateBooking(
           input.privacy ?? null,
           actor.profileId,
           input.expectedVersion,
+          input.purpose !== undefined,
+          input.notes !== undefined,
+          remindersChanged,
+          input.reminderLeads ?? null,
         ],
       );
       if (res.rowCount === 0) throw new ConflictError(t('error.versionConflict'));
@@ -832,22 +864,23 @@ export async function updateBooking(
     if (input.attendees) attendeeProfileIds = await syncAttendees(sql, bookingId, input.attendees);
     if (input.resources) await syncResources(sql, bookingId, input.resources);
 
-    if (timeChanged) {
-      // เวลาเปลี่ยน -> ยกเลิก reminder เดิมแล้วตั้งใหม่
+    if ((timeChanged || remindersChanged || input.attendees || input.title) && before.status === 'confirmed') {
+      // เวลา/การแจ้งเตือน/ผู้เข้าร่วม/หัวข้อเปลี่ยน -> ยกเลิก reminder เดิมแล้วตั้งใหม่ทั้งหมด
+      // (การจองที่รออนุมัติยังไม่ตั้งเตือน จะตั้งตอนอนุมัติ; เช็กอินแล้วคือเริ่มประชุมแล้ว)
       await cancelPendingJobs(sql, bookingId, ['booking.reminder']);
-      await scheduleRemindersForAll(sql, bookingId, [before.bookerProfileId, ...(await internalAttendeeIds(sql, bookingId))], {
-        title: input.title ?? before.title,
-        startsAt,
-        endsAt,
-        roomName: room.name,
-        roomMapLink: room.mapLink,
-      });
+      await scheduleRemindersForAll(
+        sql,
+        bookingId,
+        [before.bookerProfileId, ...(await internalAttendeeIds(sql, bookingId))],
+        { title: input.title ?? before.title, startsAt, endsAt, roomName: room.name, roomMapLink: room.mapLink },
+        { profileId: before.bookerProfileId, leads: reminderLeads },
+      );
     }
 
     const emails = await sql.query<{ email: string }>('SELECT email FROM booking_attendees WHERE booking_id = $1', [
       bookingId,
     ]);
-    await notifyBookingEvent(
+    if (!onlyReminders) await notifyBookingEvent(
       sql,
       actor,
       {
@@ -1042,13 +1075,13 @@ export async function decideApproval(
         }
         throw error;
       }
-      await scheduleRemindersForAll(sql, bookingId, [booking.bookerProfileId, ...(await internalAttendeeIds(sql, bookingId))], {
-        title: booking.title,
-        startsAt: booking.startsAt,
-        endsAt: booking.endsAt,
-        roomName: room.name,
-        roomMapLink: room.mapLink,
-      });
+      await scheduleRemindersForAll(
+        sql,
+        bookingId,
+        [booking.bookerProfileId, ...(await internalAttendeeIds(sql, bookingId))],
+        { title: booking.title, startsAt: booking.startsAt, endsAt: booking.endsAt, roomName: room.name, roomMapLink: room.mapLink },
+        { profileId: booking.bookerProfileId, leads: booking.reminderLeads },
+      );
     } else if (decision === 'rejected') {
       await sql.query(`UPDATE bookings SET status = 'rejected', version = version + 1 WHERE id = $1`, [bookingId]);
       await cancelPendingJobs(sql, bookingId);

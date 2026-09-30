@@ -522,3 +522,89 @@ describe('ค้นหาและปฏิทิน', () => {
     expect(detail?.policy.slotStepMinutes).toBe(30);
   });
 });
+
+describe('เวลาเตือนก่อนประชุมแยกตามการจอง (migration 010)', () => {
+  async function queuedReminders(bookingId: string, profileId: string) {
+    return withServiceTx(async (sql) => {
+      const res = await sql.query<{ scheduled_for: Date; subject: string }>(
+        `SELECT scheduled_for, payload->>'subject' AS subject FROM notification_jobs
+          WHERE booking_id = $1 AND recipient_profile_id = $2 AND event_type = 'booking.reminder'
+            AND channel = 'email' AND status = 'queued'
+          ORDER BY scheduled_for`,
+        [bookingId, profileId],
+      );
+      return res.rows;
+    });
+  }
+
+  it('ผู้จองได้เตือนตามที่เลือกตอนจอง รวมถึงตอนเริ่มประชุม ส่วนผู้เข้าร่วมได้ตามค่าตั้งของตัวเอง', async () => {
+    const { booking } = await createBooking(
+      ctxFor(world, 'employee'),
+      actorFor(world, 'employee'),
+      baseBooking({ reminderLeads: [60, 0], attendees: [{ email: world.users.employee2.email }] }),
+    );
+    expect(booking.reminderLeads).toEqual([60, 0]);
+
+    const mine = await queuedReminders(booking.id, world.users.employee.id);
+    const start = localDateTimeToUtc(dateISO, '10:00', 'Asia/Bangkok').getTime();
+    expect(mine.map((r) => (start - r.scheduled_for.getTime()) / 60_000)).toEqual([60, 0]);
+    expect(mine[0]!.subject).toBe('อีก 1 ชั่วโมง จะเริ่มประชุม: ประชุมทดสอบ');
+    expect(mine[1]!.subject).toBe('ถึงเวลาประชุมแล้ว: ประชุมทดสอบ');
+
+    // ผู้เข้าร่วมไม่ได้ตั้งค่าไว้ → ค่าเริ่มต้น 24 ชั่วโมง และ 15 นาที
+    const theirs = await queuedReminders(booking.id, world.users.employee2.id);
+    expect(theirs.map((r) => (start - r.scheduled_for.getTime()) / 60_000)).toEqual([1440, 15]);
+  });
+
+  it('แก้เฉพาะการแจ้งเตือน: ตั้งเตือนใหม่ ไม่ลบข้อมูลอื่น และไม่แจ้ง "มีการแก้ไขการจอง" ไปหาทุกคน', async () => {
+    const ctx = ctxFor(world, 'employee');
+    const actor = actorFor(world, 'employee');
+    const { booking } = await createBooking(ctx, actor, baseBooking({ purpose: 'วางแผนข่าว', reminderLeads: [60, 0] }));
+
+    const updated = await updateBooking(ctx, actor, booking.id, { expectedVersion: booking.version, reminderLeads: [0] });
+    expect(updated.reminderLeads).toEqual([0]);
+    expect(await queuedReminders(booking.id, world.users.employee.id)).toHaveLength(1);
+
+    // กลับไปใช้ค่าที่เคยยกเลิก ต้องตั้งได้อีกครั้ง (เดิม dedupe_key ชนแล้วเตือนหายเงียบ ๆ)
+    const again = await updateBooking(ctx, actor, booking.id, { expectedVersion: updated.version, reminderLeads: [60, 0] });
+    expect(await queuedReminders(booking.id, world.users.employee.id)).toHaveLength(2);
+
+    const detail = await getBookingDetail(ctx, again.id);
+    expect(detail?.purpose).toBe('วางแผนข่าว');
+
+    const updatedNotices = await withServiceTx(async (sql) => {
+      const res = await sql.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM notification_jobs WHERE booking_id = $1 AND event_type = 'booking.updated'`,
+        [booking.id],
+      );
+      return Number(res.rows[0]?.count ?? 0);
+    });
+    expect(updatedNotices).toBe(0);
+  });
+
+  it('ไม่เลือกเวลาเตือน = ใช้ค่าตั้งส่วนตัวเหมือนเดิม และเลือก "ไม่เตือน" ได้', async () => {
+    const ctx = ctxFor(world, 'employee');
+    const actor = actorFor(world, 'employee');
+    const { booking } = await createBooking(ctx, actor, baseBooking());
+    expect(booking.reminderLeads).toBeNull();
+    expect(await queuedReminders(booking.id, world.users.employee.id)).toHaveLength(2);
+
+    const { booking: silent } = await createBooking(ctx, actor, baseBooking({ startTime: '13:00', endTime: '14:00', reminderLeads: [] }));
+    expect(await queuedReminders(silent.id, world.users.employee.id)).toHaveLength(0);
+  });
+
+  it('ห้องที่ต้องอนุมัติ: ตั้งเตือนตามที่ผู้จองเลือกเมื่ออนุมัติแล้วเท่านั้น', async () => {
+    const { booking } = await createBooking(
+      ctxFor(world, 'employee'),
+      actorFor(world, 'employee'),
+      baseBooking({ roomId: world.rooms.approval, reminderLeads: [30] }),
+    );
+    expect(booking.status).toBe('pending');
+    expect(await queuedReminders(booking.id, world.users.employee.id)).toHaveLength(0);
+
+    await decideApproval(ctxFor(world, 'approver'), actorFor(world, 'approver'), booking.id, 'approved', null);
+    const mine = await queuedReminders(booking.id, world.users.employee.id);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.subject).toContain('อีก 30 นาที');
+  });
+});
