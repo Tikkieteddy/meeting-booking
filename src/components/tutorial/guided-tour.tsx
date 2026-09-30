@@ -170,23 +170,23 @@ export function GuidedTour({ onFinish, forceOpen }: { onFinish?: () => void; for
       */}
       {rect ? (
         <div aria-hidden="true">
-          <div className="fixed inset-x-0 top-0 z-40 bg-ink-900/60" style={{ height: Math.max(0, rect.top) }} />
-          <div className="fixed inset-x-0 bottom-0 z-40 bg-ink-900/60" style={{ top: rect.top + rect.height }} />
+          <div className="fixed inset-x-0 top-0 z-[45] bg-ink-900/60" style={{ height: Math.max(0, rect.top) }} />
+          <div className="fixed inset-x-0 bottom-0 z-[45] bg-ink-900/60" style={{ top: rect.top + rect.height }} />
           <div
-            className="fixed z-40 bg-ink-900/60"
+            className="fixed z-[45] bg-ink-900/60"
             style={{ top: rect.top, height: rect.height, left: 0, width: Math.max(0, rect.left) }}
           />
           <div
-            className="fixed z-40 bg-ink-900/60"
+            className="fixed z-[45] bg-ink-900/60"
             style={{ top: rect.top, height: rect.height, left: rect.left + rect.width, right: 0 }}
           />
           <div
-            className="pointer-events-none fixed z-40 rounded-xl ring-2 ring-brand-500 transition-all duration-200"
+            className="pointer-events-none fixed z-[45] rounded-xl ring-2 ring-brand-500 transition-all duration-200"
             style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
           />
         </div>
       ) : (
-        <div aria-hidden="true" className="fixed inset-0 z-40 bg-ink-900/60" />
+        <div aria-hidden="true" className="fixed inset-0 z-[45] bg-ink-900/60" />
       )}
 
       <div

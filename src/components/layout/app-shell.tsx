@@ -90,7 +90,13 @@ export function AppShell({
 
       <OfflineBanner />
 
-      <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur">
+      {/*
+        ชั้นความสูงของแถบหัว (z-40) ต้องสูงกว่าทุกอย่างในเนื้อหาหน้า (ปฏิทินใช้สูงสุด z-30)
+        เพราะ backdrop-blur ทำให้ header เป็นกลุ่มชั้นของตัวเอง เมนูข้างใน (z-40) จึงสูงได้
+        ไม่เกิน header — ถ้า header เท่ากับเนื้อหา เส้นเวลาปัจจุบันจะลอยทับเมนูโปรไฟล์
+        (บั๊กที่ผู้ใช้เจอ 30 ก.ย. 2569) มีเทสต์ใน tests/e2e/layering.spec.ts
+      */}
+      <header className="sticky top-0 z-40 border-b border-ink-200 bg-white/95 backdrop-blur">
         <div className="flex h-16 items-center gap-3 px-3 sm:px-5">
           {/*
             aria-label ต้องครอบคลุมข้อความที่ตาเห็น (กฎ WCAG 2.5.3 Label in Name)
@@ -207,7 +213,7 @@ export function AppShell({
       {/* แถบล่างสำหรับมือถือ — เข้าถึงงานหลักได้โดยไม่ต้องเลื่อนหน้า (บรีฟ AC09) */}
       <nav
         aria-label="เมนูหลัก (มือถือ)"
-        className="sticky bottom-0 z-30 flex border-t border-ink-200 bg-white pb-[env(safe-area-inset-bottom,0px)] md:hidden"
+        className="sticky bottom-0 z-40 flex border-t border-ink-200 bg-white pb-[env(safe-area-inset-bottom,0px)] md:hidden"
       >
         {PRIMARY_NAV.filter((item) => allowed(user, item)).map((item) => (
           <Link
