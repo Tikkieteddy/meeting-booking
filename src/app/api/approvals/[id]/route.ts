@@ -3,6 +3,7 @@ import { decideApproval } from '@/lib/domain/booking-service';
 import { currentActor } from '@/lib/api/actor';
 import { requirePermission } from '@/lib/auth/current-user';
 import { apiOk, withApi } from '@/lib/api/respond';
+import { dispatchSoon } from '@/lib/notify/dispatch-soon';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,5 +14,6 @@ export const POST = withApi(async (request: Request, context: { params: Promise<
   const { actor, ctx } = await currentActor();
   const body = approvalDecisionSchema.parse(await request.json());
   const booking = await decideApproval(ctx, actor, id, body.decision, body.comment ?? null);
+  dispatchSoon();
   return apiOk({ booking });
 });

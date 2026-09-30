@@ -16,7 +16,7 @@
 |---|---|---|---|---|---|---|
 | `APP_ENV` | – | Server | `development` | `preview` | `production` | ใช้กันการรันคำสั่งอันตรายบน production |
 | `APP_TIMEZONE` | – | Server | `Asia/Bangkok` | `Asia/Bangkok` | `Asia/Bangkok` | ฐานข้อมูลเก็บ UTC เสมอ ตัวนี้ใช้แสดงผล |
-| `NEXT_PUBLIC_APP_URL` | – | **Browser** | `http://localhost:3000` | URL ของ staging | `https://meeting.example.com` | ใช้ประกอบลิงก์ในอีเมล/LINE ถ้าผิดลิงก์จะพาไปผิดที่ |
+| `NEXT_PUBLIC_APP_URL` | – | **Browser** | `http://localhost:3000` | URL ของ staging | `https://meeting.example.com` | ใช้ประกอบลิงก์ในอีเมล/LINE ถ้าผิดลิงก์จะพาไปผิดที่ — ถ้าไม่ตั้งบน Vercel ระบบใช้ `https://$VERCEL_PROJECT_PRODUCTION_URL` แทน (ต้องเปิด System Environment Variables) |
 | `LOG_LEVEL` | – | Server | `debug` | `info` | `info` | `debug` บน production จะทำให้ log เยอะเกินจำเป็น |
 | `RELEASE_VERSION` | – | Server | `dev` | commit sha | `v1.0.0` | ติดไปกับทุกบรรทัด log ช่วยตามรอยว่าเวอร์ชันไหนมีปัญหา |
 

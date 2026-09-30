@@ -4,6 +4,7 @@ import { writeAudit } from '@/lib/audit';
 import { currentActor } from '@/lib/api/actor';
 import { requirePermission } from '@/lib/auth/current-user';
 import { apiOk, withApi } from '@/lib/api/respond';
+import { dispatchSoon } from '@/lib/notify/dispatch-soon';
 import { enqueueNotification, pushInApp } from '@/lib/notify/queue';
 
 export const dynamic = 'force-dynamic';
@@ -92,5 +93,6 @@ export const POST = withApi(async (request: Request, context: { params: Promise<
     return { closureId: closure.rows[0]!.id, impacted: impacted.rowCount };
   });
 
+  dispatchSoon();
   return apiOk(affected, { status: 201 });
 });

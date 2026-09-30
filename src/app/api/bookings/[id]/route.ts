@@ -3,6 +3,7 @@ import { getBookingDetail, updateBooking } from '@/lib/domain/booking-service';
 import { isWithinCheckInWindow } from '@/lib/domain/booking-rules';
 import { currentActor } from '@/lib/api/actor';
 import { apiOk, withApi } from '@/lib/api/respond';
+import { dispatchSoon } from '@/lib/notify/dispatch-soon';
 import { NotFoundError } from '@/lib/domain/errors';
 import { t } from '@/lib/i18n';
 
@@ -43,5 +44,6 @@ export const PATCH = withApi(async (request: Request, context: { params: Promise
   const { actor, ctx } = await currentActor();
   const input = updateBookingSchema.parse(await request.json());
   const booking = await updateBooking(ctx, actor, id, input);
+  dispatchSoon();
   return apiOk({ booking });
 });

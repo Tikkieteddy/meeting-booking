@@ -49,10 +49,27 @@ export type ServerEnv = z.infer<typeof serverSchema>;
 
 let cached: ServerEnv | null = null;
 
+/**
+ * ที่อยู่เว็บที่ใช้ประกอบลิงก์ในอีเมล/LINE และตัดสินธง Secure ของ cookie
+ *
+ * ถ้าลืมตั้ง NEXT_PUBLIC_APP_URL บน Vercel เดิมจะตกไปใช้ค่าเริ่มต้น http://localhost:3000
+ * ลิงก์ "ดูรายละเอียด" ใน LINE จึงพาไป localhost (เจอจริงบน production)
+ * ตอนนี้ถ้าไม่ได้ตั้ง แต่รันบน Vercel จะใช้โดเมน production ที่ Vercel บอกมาแทน
+ * (VERCEL_PROJECT_PRODUCTION_URL — ต้องเปิด "System Environment Variables" ไว้ ซึ่งเป็นค่าเริ่มต้น)
+ * ค่าที่ตั้งเองยังชนะเสมอ
+ */
+export function appUrlFrom(source: Record<string, string | undefined>): string | undefined {
+  const configured = source.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) return configured;
+  const vercelHost = source.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercelHost) return `https://${vercelHost.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`;
+  return undefined;
+}
+
 /** อ่าน env ฝั่ง server แบบ lazy — จะ throw เฉพาะเมื่อมีการเรียกใช้จริง (build ไม่ล้ม) */
 export function env(): ServerEnv {
   if (cached) return cached;
-  const parsed = serverSchema.safeParse(process.env);
+  const parsed = serverSchema.safeParse({ ...process.env, NEXT_PUBLIC_APP_URL: appUrlFrom(process.env) });
   if (!parsed.success) {
     const problems = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\n  ');
     throw new Error(

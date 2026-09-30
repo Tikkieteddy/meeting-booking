@@ -4,6 +4,7 @@ import { listMyBookings } from '@/lib/domain/search';
 import { currentActor } from '@/lib/api/actor';
 import { requirePermission } from '@/lib/auth/current-user';
 import { apiOk, withApi } from '@/lib/api/respond';
+import { dispatchSoon } from '@/lib/notify/dispatch-soon';
 import { consumeRateLimit } from '@/lib/util/rate-limit';
 import { DomainError } from '@/lib/domain/errors';
 import { t } from '@/lib/i18n';
@@ -28,6 +29,7 @@ export const POST = withApi(async (request: Request) => {
 
   if (input.recurrence) {
     const result = await createRecurringBookings(ctx, actor, { ...input, recurrence: input.recurrence });
+    dispatchSoon();
     return apiOk(
       {
         bookings: result.created,
@@ -40,5 +42,6 @@ export const POST = withApi(async (request: Request) => {
   }
 
   const { booking, requiresApproval } = await createBooking(ctx, actor, input);
+  dispatchSoon();
   return apiOk({ booking, requiresApproval }, { status: 201 });
 });
