@@ -14,6 +14,8 @@ export const NOTIFICATION_EVENTS = {
   'booking.no_show': 'ปล่อยห้องเพราะไม่เช็กอิน',
   'room.closed': 'ห้องปิดฉุกเฉิน',
   'waitlist.offer': 'มีห้องว่างสำหรับคิวรอ',
+  // ข้อความที่บอท LINE ตอบระหว่างเชื่อมบัญชี — ไม่มีหัวข้อตายตัว ใช้ subject ของแต่ละข้อความ
+  'line.link': 'เชื่อมบัญชี LINE',
 } as const;
 
 export type NotificationEvent = keyof typeof NOTIFICATION_EVENTS;

@@ -114,3 +114,14 @@ describe('Export CSV', () => {
     expect(csv).toContain('ชื่อ,หมายเหตุ,จำนวน');
   });
 });
+
+describe('ข้อความบอท LINE ตอนเชื่อมบัญชี', () => {
+  it('ขึ้นหัวตามเนื้อหาจริง ไม่ยืมหัวของเหตุการณ์อื่น', () => {
+    const ok = renderLineMessage('line.link', { subject: 'เชื่อมบัญชีสำเร็จ', text: 'สำเร็จแล้ว' }, 'https://x.example');
+    expect(ok.startsWith('[เชื่อมบัญชีสำเร็จ]')).toBe(true);
+    expect(ok).not.toContain('คำเชิญ');
+    const bad = renderLineMessage('line.link', { subject: 'รหัสไม่ถูกต้อง', text: 'ขอรหัสใหม่' }, 'https://x.example');
+    expect(bad.startsWith('[รหัสไม่ถูกต้อง]')).toBe(true);
+    expect(bad).not.toContain('ยืนยันอีเมล');
+  });
+});

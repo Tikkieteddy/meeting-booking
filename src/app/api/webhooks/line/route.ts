@@ -48,9 +48,11 @@ export const POST = withApi(async (request: Request) => {
       // รหัสเชื่อมบัญชีเป็นตัวอักษรพิมพ์ใหญ่กับตัวเลข 8 ตัว
       if (/^[A-Za-z0-9]{8}$/.test(text)) {
         const result = await consumeLinkCode(text, lineUserId);
+        // ใช้เหตุการณ์ line.link ซึ่งไม่มีหัวข้อตายตัว ข้อความจึงขึ้นหัวตาม subject ด้านล่าง
+        // (เดิมยืมเหตุการณ์ auth.* ทำให้ขึ้นหัวผิดเป็น "คำเชิญเข้าใช้งานระบบ" / "ยืนยันอีเมลของคุณ")
         await sendLine(
           lineUserId,
-          result.linked ? 'auth.invite' : 'auth.verify_email',
+          'line.link',
           result.linked
             ? {
                 subject: 'เชื่อมบัญชีสำเร็จ',
@@ -64,7 +66,7 @@ export const POST = withApi(async (request: Request) => {
         continue;
       }
 
-      await sendLine(lineUserId, 'auth.verify_email', {
+      await sendLine(lineUserId, 'line.link', {
         subject: 'วิธีเชื่อมบัญชี',
         text: 'พิมพ์รหัสเชื่อมบัญชี 8 ตัวที่ได้จากหน้าโปรไฟล์ในระบบจองห้องประชุม TNN เพื่อรับการแจ้งเตือนทาง LINE',
       });
