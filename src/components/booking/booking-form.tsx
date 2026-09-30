@@ -5,14 +5,15 @@ import { MapLink } from '@/components/ui/map-link';
 import { AttendeePicker, type AttendeeChip } from './attendee-picker';
 import { ReminderEditor } from '@/components/ui/reminder-editor';
 import type { Room, Amenity } from '@/lib/domain/rooms';
-import { Button, Checkbox, Field, Input, Select, Textarea, cx } from '@/components/ui/primitives';
+import { Button, Field, Input, Select, Textarea, cx } from '@/components/ui/primitives';
 import { Overlay } from '@/components/ui/overlay';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
 import { timeSlots, durationLabel } from '@/lib/domain/booking-rules';
 import { formatThaiDate, hhmmToMinutes, minutesToHhmm } from '@/lib/util/time';
-import { describeRecurrence } from '@/lib/domain/recurrence';
+import type { RecurrenceRule } from '@/lib/domain/recurrence';
+import { RecurrencePicker } from './recurrence-picker';
 
 export type BookingFormPreset = {
   roomId: string | null;
@@ -44,10 +45,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
   const [attendees, setAttendees] = useState<AttendeeChip[]>([]);
   const [privacy, setPrivacy] = useState<'public' | 'busy_only' | 'private'>('public');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [recurrenceOn, setRecurrenceOn] = useState(false);
-  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
-  const [untilDate, setUntilDate] = useState('');
-  const [occurrenceCount, setOccurrenceCount] = useState(4);
+  const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
   // เวลาเตือนของการจองนี้ — เริ่มจากค่าตั้งส่วนตัว null = ยังโหลดไม่เสร็จ (ส่งไปไม่ได้ ระบบจะใช้ค่าตั้งส่วนตัวเอง)
   const [reminderLeads, setReminderLeads] = useState<number[] | null>(null);
@@ -114,14 +112,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         idempotencyKey,
         overrideReason: overrideReason || null,
         ...(reminderLeads !== null ? { reminderLeads } : {}),
-        recurrence: recurrenceOn
-          ? {
-              frequency,
-              intervalCount: 1,
-              untilDate: untilDate || null,
-              occurrenceCount: untilDate ? null : occurrenceCount,
-            }
-          : null,
+        recurrence,
       };
       const result = await apiFetch<{ requiresApproval: boolean; skipped?: { dateISO: string; reason: string }[] }>(
         '/api/bookings',
@@ -314,50 +305,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
           <Textarea id="bk-notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={2000} />
         </Field>
 
-        <fieldset className="flex flex-col gap-3 rounded-xl border border-ink-200 p-3">
-          <legend className="px-1 text-sm font-medium text-ink-700">{t('booking.recurrence')}</legend>
-          <Checkbox
-            label="จองซ้ำหลายครั้ง"
-            checked={recurrenceOn}
-            onChange={(event) => setRecurrenceOn(event.target.checked)}
-          />
-          {recurrenceOn && (
-            <>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="ความถี่" htmlFor="bk-freq">
-                  <Select id="bk-freq" value={frequency} onChange={(event) => setFrequency(event.target.value as typeof frequency)}>
-                    <option value="daily">{t('booking.recurrence.daily')}</option>
-                    <option value="weekly">{t('booking.recurrence.weekly')}</option>
-                    <option value="monthly">{t('booking.recurrence.monthly')}</option>
-                  </Select>
-                </Field>
-                <Field label={t('booking.recurrence.until')} htmlFor="bk-until">
-                  <Input id="bk-until" type="date" value={untilDate} onChange={(event) => setUntilDate(event.target.value)} />
-                </Field>
-                <Field label={t('booking.recurrence.count')} htmlFor="bk-count-times" hint="ใช้เมื่อไม่ระบุวันสิ้นสุด">
-                  <Input
-                    id="bk-count-times"
-                    type="number"
-                    min={1}
-                    max={104}
-                    value={occurrenceCount}
-                    onChange={(event) => setOccurrenceCount(Number(event.target.value))}
-                    disabled={Boolean(untilDate)}
-                  />
-                </Field>
-              </div>
-              <p className="text-xs text-ink-500">
-                {describeRecurrence({
-                  frequency,
-                  intervalCount: 1,
-                  untilDate: untilDate || null,
-                  occurrenceCount: untilDate ? null : occurrenceCount,
-                })}
-                {' · ครั้งที่ชนเวลาจะถูกข้ามและแจ้งให้ทราบ'}
-              </p>
-            </>
-          )}
-        </fieldset>
+        <RecurrencePicker dateISO={dateISO} onChange={setRecurrence} />
 
         {canOverride && (
           <Field

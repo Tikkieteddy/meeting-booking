@@ -10,9 +10,6 @@ export const MAX_REMINDERS = 5;
 export const MAX_REMINDER_MINUTES = 10080;
 export const DEFAULT_REMINDER_LEADS = [1440, 15];
 
-/** ตัวเลือกสำเร็จรูปแบบ Google Calendar — นอกจากนี้ผู้ใช้กำหนดเองได้ */
-export const REMINDER_PRESETS = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080];
-
 /** ค่าที่เพิ่มให้เมื่อกด "เพิ่มการแจ้งเตือน" — เลือกค่าสำเร็จรูปแรกที่ยังไม่ได้ใช้ เริ่มที่ 30 นาทีเหมือน Google */
 export function nextReminderLead(existing: number[]): number {
   const order = [30, 10, 60, 15, 5, 0, 120, 1440, 2880, 10080];

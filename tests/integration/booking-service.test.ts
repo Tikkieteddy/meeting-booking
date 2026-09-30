@@ -608,3 +608,38 @@ describe('เวลาเตือนก่อนประชุมแยกต�
     expect(mine[0]!.subject).toContain('อีก 30 นาที');
   });
 });
+
+describe('การจองซ้ำแบบ Google Calendar (migration 011)', () => {
+  it('รายเดือนแบบ "วันเดียวกันของสัปดาห์ที่ n" จองได้ครบและเก็บกฎลงชุดการจอง', async () => {
+    // หาวันจันทร์ที่ 2 ของเดือนถัดไป ให้เป็นวันทำการเสมอ
+    const next = new Date();
+    next.setUTCMonth(next.getUTCMonth() + 1, 1);
+    const month = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-01`;
+    const { nthWeekdayOfMonth } = await import('@/lib/domain/recurrence');
+    const start = nthWeekdayOfMonth(month, 1, 2)!;
+
+    const result = await createRecurringBookings(ctxFor(world, 'employee'), actorFor(world, 'employee'), {
+      ...baseBooking({ dateISO: start }),
+      recurrence: { frequency: 'monthly', intervalCount: 1, monthWeek: 2, occurrenceCount: 3 },
+    });
+    expect(result.created).toHaveLength(3);
+    expect(result.skipped).toEqual([]);
+
+    const series = await withServiceTx(async (sql) => {
+      const res = await sql.query<{ frequency: string; month_week: number | null }>(
+        'SELECT frequency, month_week FROM booking_series WHERE id = $1',
+        [result.seriesId],
+      );
+      return res.rows[0];
+    });
+    expect(series).toEqual({ frequency: 'monthly', month_week: 2 });
+  });
+
+  it('รายปีบันทึกได้ (ฐานข้อมูลรับ frequency = yearly)', async () => {
+    const result = await createRecurringBookings(ctxFor(world, 'employee'), actorFor(world, 'employee'), {
+      ...baseBooking(),
+      recurrence: { frequency: 'yearly', intervalCount: 1, occurrenceCount: 1 },
+    });
+    expect(result.created).toHaveLength(1);
+  });
+});

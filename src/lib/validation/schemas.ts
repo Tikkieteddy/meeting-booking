@@ -71,13 +71,22 @@ const reminderLeadsSchema = z
   .refine((leads) => new Set(leads).size <= MAX_REMINDERS, `ตั้งเตือนได้ไม่เกิน ${MAX_REMINDERS} ครั้ง`)
   .transform((leads) => normalizeReminderLeads(leads));
 
-export const recurrenceSchema = z.object({
-  frequency: z.enum(['daily', 'weekly', 'monthly']),
-  intervalCount: z.coerce.number().int().min(1).max(12).default(1),
-  byWeekdays: z.array(z.coerce.number().int().min(0).max(6)).optional().nullable(),
-  untilDate: dateISO.optional().nullable(),
-  occurrenceCount: z.coerce.number().int().min(1).max(104).optional().nullable(),
-});
+export const recurrenceSchema = z
+  .object({
+    frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
+    intervalCount: z.coerce.number().int().min(1, 'ต้องซ้ำอย่างน้อยทุก 1 ครั้ง').max(12, 'ซ้ำห่างได้ไม่เกิน 12').default(1),
+    byWeekdays: z.array(z.coerce.number().int().min(0).max(6)).optional().nullable(),
+    // รายเดือนแบบ "วันพุธที่ 2" (1–5) หรือ "วันพุธสุดท้าย" (-1)
+    monthWeek: z.coerce.number().int().refine((n) => n === -1 || (n >= 1 && n <= 5)).optional().nullable(),
+    untilDate: dateISO.optional().nullable(),
+    occurrenceCount: z.coerce.number().int().min(1).max(104, 'จองซ้ำได้ไม่เกิน 104 ครั้ง').optional().nullable(),
+  })
+  .refine((r) => !r.monthWeek || r.frequency === 'monthly', { message: 'เลือกสัปดาห์ของเดือนได้เฉพาะการซ้ำรายเดือน', path: ['monthWeek'] })
+  .refine((r) => r.frequency !== 'weekly' || r.byWeekdays === undefined || r.byWeekdays === null || r.byWeekdays.length > 0, {
+    message: 'เลือกวันในสัปดาห์อย่างน้อย 1 วัน',
+    path: ['byWeekdays'],
+  })
+  .refine((r) => Boolean(r.untilDate || r.occurrenceCount), { message: 'ต้องระบุวันสิ้นสุดหรือจำนวนครั้ง', path: ['untilDate'] });
 
 export const createBookingSchema = z.object({
   roomId: z.string().uuid('กรุณาเลือกห้องประชุม'),

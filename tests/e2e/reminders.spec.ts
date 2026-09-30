@@ -2,8 +2,8 @@ import { test, expect, type Locator } from '@playwright/test';
 import { STORAGE_STATE, bookingDateISO, openCalendar } from './helpers';
 
 /**
- * เวลาเตือนก่อนประชุมแบบ Google Calendar: เลือกได้หลายครั้ง มีตัวเลือกสำเร็จรูป
- * "ตอนเริ่มประชุม" และกำหนดเองเป็นตัวเลข + หน่วย ตั้งตอนจองและแก้ภายหลังได้จากหน้ารายละเอียด
+ * เวลาเตือนก่อนประชุมแบบ Google Calendar: แต่ละแถวเป็น [ตัวเลข][หน่วย] ✕ เพิ่มได้หลายแถว
+ * 0 นาที = ตอนเริ่มประชุม ตั้งตอนจองและแก้ภายหลังได้จากหน้ารายละเอียด
  */
 test.use({ storageState: STORAGE_STATE.employee });
 
@@ -14,7 +14,7 @@ async function clearReminders(scope: Locator) {
   while ((await remove.count()) > 0) await remove.first().click();
 }
 
-test('ตั้งเตือนหลายครั้งตอนจอง รวม "ตอนเริ่มประชุม" และแบบกำหนดเอง แล้วแก้ภายหลังได้', async ({ page }) => {
+test('ตั้งเตือนหลายครั้งตอนจอง รวม "ตอนเริ่มประชุม" แล้วแก้ภายหลังได้', async ({ page }) => {
   await openCalendar(page);
   await page.getByRole('button', { name: /จองห้องประชุม|^จอง$/ }).first().click();
   const dialog = page.getByRole('dialog', { name: 'จองห้องประชุม' });
@@ -24,17 +24,16 @@ test('ตั้งเตือนหลายครั้งตอนจอง �
   await clearReminders(reminders);
   await expect(reminders.getByText('ไม่มีการแจ้งเตือน')).toBeVisible();
 
-  // แถวแรก: เพิ่มแล้วเปลี่ยนเป็นตอนเริ่มประชุม
+  // แถวแรก: เพิ่มแล้วตั้งเป็น 0 นาที = ตอนเริ่มประชุม
   await reminders.getByRole('button', { name: '+ เพิ่มการแจ้งเตือน' }).click();
-  const first = reminders.getByLabel('การแจ้งเตือนที่ 1');
-  await expect(first).toHaveValue('30');
-  await first.selectOption({ label: 'ตอนเริ่มประชุม' });
+  await expect(reminders.getByLabel('การแจ้งเตือนที่ 1 จำนวน')).toHaveValue('30');
+  await reminders.getByLabel('การแจ้งเตือนที่ 1 จำนวน').fill('0');
+  await expect(reminders.getByText('แถวนี้ = เตือนตอนเริ่มประชุม')).toBeVisible();
 
-  // แถวที่สอง: กำหนดเอง 3 ชั่วโมง
+  // แถวที่สอง: 3 ชั่วโมง (แบบ Google: ตัวเลข + หน่วย)
   await reminders.getByRole('button', { name: '+ เพิ่มการแจ้งเตือน' }).click();
-  await reminders.getByLabel('การแจ้งเตือนที่ 2').selectOption({ label: 'กำหนดเอง…' });
-  await reminders.getByLabel('หน่วย').selectOption({ label: 'ชั่วโมง' });
-  await reminders.getByLabel('จำนวน').fill('3');
+  await reminders.getByLabel('การแจ้งเตือนที่ 2 หน่วย').selectOption({ label: 'ชั่วโมง' });
+  await reminders.getByLabel('การแจ้งเตือนที่ 2 จำนวน').fill('3');
 
   // เพิ่มได้ไม่เกิน 5 ครั้ง
   const add = reminders.getByRole('button', { name: '+ เพิ่มการแจ้งเตือน' });
@@ -58,15 +57,19 @@ test('ตั้งเตือนหลายครั้งตอนจอง �
   // หน้ารายละเอียด: เห็นค่าที่เลือก และแก้ได้
   await page.goto(`/bookings/${booking.id}`);
   const mine = page.getByRole('group', { name: 'การแจ้งเตือนของฉันสำหรับการจองนี้' });
-  await expect(mine.getByLabel('การแจ้งเตือนที่ 1')).toHaveValue('custom');
-  await expect(mine.getByLabel('จำนวน')).toHaveValue('3');
-  await expect(mine.getByLabel('การแจ้งเตือนที่ 2')).toHaveValue('0');
+  await expect(mine.getByLabel('การแจ้งเตือนที่ 1 จำนวน')).toHaveValue('3');
+  await expect(mine.getByLabel('การแจ้งเตือนที่ 1 หน่วย')).toHaveValue('hour');
+  await expect(mine.getByLabel('การแจ้งเตือนที่ 2 จำนวน')).toHaveValue('0');
 
-  await mine.getByLabel('การแจ้งเตือนที่ 1').selectOption({ label: '1 วันก่อน' });
+  // เปลี่ยนเป็น 1 วัน
+  await mine.getByLabel('การแจ้งเตือนที่ 1 หน่วย').selectOption({ label: 'วัน' });
+  await mine.getByLabel('การแจ้งเตือนที่ 1 จำนวน').fill('1');
   await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
   await expect(page.getByText('บันทึกการแจ้งเตือนแล้ว')).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('group', { name: 'การแจ้งเตือนของฉันสำหรับการจองนี้' }).getByLabel('การแจ้งเตือนที่ 1')).toHaveValue('1440');
+  const after = page.getByRole('group', { name: 'การแจ้งเตือนของฉันสำหรับการจองนี้' });
+  await expect(after.getByLabel('การแจ้งเตือนที่ 1 จำนวน')).toHaveValue('1');
+  await expect(after.getByLabel('การแจ้งเตือนที่ 1 หน่วย')).toHaveValue('day');
 });
 
 test('ตั้งค่าเริ่มต้นของการเตือนในหน้าโปรไฟล์ได้แบบเดียวกัน', async ({ page }, testInfo) => {
@@ -75,8 +78,9 @@ test('ตั้งค่าเริ่มต้นของการเตื�
   await page.getByRole('tab', { name: 'ตั้งค่าการแจ้งเตือน' }).click();
   const group = page.getByRole('group', { name: 'เตือนก่อนประชุม' });
   await expect(group).toBeVisible();
-  const before = await group.locator('select[aria-label^="การแจ้งเตือนที่"]').count();
+  const rows = group.locator('[data-reminder-row]');
+  const before = await rows.count();
   await group.getByRole('button', { name: '+ เพิ่มการแจ้งเตือน' }).click();
-  await expect(group.locator('select[aria-label^="การแจ้งเตือนที่"]')).toHaveCount(before + 1);
+  await expect(rows).toHaveCount(before + 1);
   // ไม่บันทึก — ไม่ให้กระทบเทสต์อื่นที่ใช้บัญชีเดียวกัน
 });

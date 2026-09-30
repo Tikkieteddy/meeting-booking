@@ -590,8 +590,8 @@ export async function createRecurringBookings(
 
   const seriesId = await withTx(ctx, async (sql) => {
     const res = await sql.query<{ id: string }>(
-      `INSERT INTO booking_series (room_id, created_by, frequency, interval_count, by_weekdays, until_date, occurrence_count)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      `INSERT INTO booking_series (room_id, created_by, frequency, interval_count, by_weekdays, until_date, occurrence_count, month_week)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
       [
         input.roomId,
         actor.profileId,
@@ -600,6 +600,7 @@ export async function createRecurringBookings(
         input.recurrence.byWeekdays ?? null,
         input.recurrence.untilDate ?? null,
         input.recurrence.occurrenceCount ?? null,
+        input.recurrence.frequency === 'monthly' ? (input.recurrence.monthWeek ?? null) : null,
       ],
     );
     return res.rows[0]!.id;
