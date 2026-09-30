@@ -57,3 +57,21 @@ test('เปิดเมนูโปรไฟล์แล้ว ตรงกล�
   });
   expect(covered, 'มีของอื่นทับเมนู').toEqual([]);
 });
+
+test.describe('เมนูโปรไฟล์ของผู้ดูแลระบบ (เมนูยาว)', () => {
+  test.use({ storageState: STORAGE_STATE.admin, viewport: { width: 1280, height: 600 } });
+
+  test('จอเตี้ยก็ไม่ล้นจอ และเลื่อนลงไปกด "ออกจากระบบ" ได้', async ({ page }) => {
+    await openCalendar(page);
+    await page.getByRole('button', { name: /^เมนูของ/ }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+
+    const box = (await menu.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(600);
+
+    const logout = menu.getByRole('menuitem', { name: 'ออกจากระบบ' });
+    await logout.scrollIntoViewIfNeeded();
+    await expect(logout).toBeInViewport();
+  });
+});

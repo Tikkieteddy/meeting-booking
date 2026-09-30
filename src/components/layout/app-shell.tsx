@@ -31,7 +31,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin', labelKey: 'admin.dashboard', icon: '📊', permission: 'report:read' },
   { href: '/admin/rooms', labelKey: 'nav.rooms', icon: '🚪', permission: 'room:manage' },
   { href: '/admin/users', labelKey: 'nav.users', icon: '👥', permission: 'user:manage' },
-  { href: '/admin/roles', labelKey: 'nav.roles', icon: '🛡', permission: 'role:manage' },
+  { href: '/admin/roles', labelKey: 'nav.roles', icon: '🛡️', permission: 'role:manage' },
   { href: '/admin/reports', labelKey: 'nav.reports', icon: '📈', permission: 'report:read' },
   { href: '/admin/audit', labelKey: 'nav.auditLog', icon: '🧾', permission: 'audit:read' },
   { href: '/admin/system', labelKey: 'nav.systemHealth', icon: '🩺', permission: 'system:manage' },
@@ -171,17 +171,19 @@ export function AppShell({
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute end-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-2xl border border-ink-200 bg-white py-1 shadow-lift"
+                  // สูงไม่เกินจอ (เว้นแถบหัว) ถ้ารายการเยอะให้เลื่อนในเมนู — ผู้ดูแลระบบมีเมนูมาก
+                  // บนจอเตี้ยเคยล้นจนกด "ออกจากระบบ" ไม่ได้
+                  className="absolute end-0 top-full z-40 mt-1 flex max-h-[calc(100dvh-5rem)] w-72 flex-col overflow-y-auto overscroll-contain rounded-2xl border border-ink-200 bg-white py-1 shadow-lift"
                 >
-                  <div className="border-b border-ink-100 px-4 py-2.5">
-                    <p className="text-sm font-medium text-ink-800">{user.fullName}</p>
-                    <p className="truncate text-xs text-ink-500">{user.email}</p>
+                  <div className="border-b border-ink-100 px-4 py-2">
+                    <p className="truncate text-sm font-medium leading-snug text-ink-800">{user.fullName}</p>
+                    <p className="truncate text-xs leading-snug text-ink-500">{user.email}</p>
                   </div>
                   <MenuLink href="/profile" icon="👤" label={t('nav.profile')} />
                   <MenuLink href="/help" icon="❓" label={t('nav.help')} />
                   {visibleAdmin.length > 0 && (
                     <>
-                      <p className="px-4 pb-1 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-400">
+                      <p className="mt-1 border-t border-ink-100 px-4 pb-0.5 pt-2 text-xs font-semibold text-ink-500">
                         {t('nav.admin')}
                       </p>
                       {visibleAdmin.map((item) => (
@@ -193,9 +195,11 @@ export function AppShell({
                     type="button"
                     role="menuitem"
                     onClick={logout}
-                    className="mt-1 flex w-full items-center gap-2 border-t border-ink-100 px-4 py-2.5 text-start text-sm text-red-700 hover:bg-red-50"
+                    className="mt-1 flex w-full shrink-0 items-center gap-3 border-t border-ink-100 px-4 py-1.5 text-start text-sm leading-snug text-red-700 hover:bg-red-50"
                   >
-                    <span aria-hidden="true">↩</span>
+                    <span aria-hidden="true" className="w-6 shrink-0 text-center">
+                      ↩
+                    </span>
                     {t('nav.logout')}
                   </button>
                 </div>
@@ -241,9 +245,16 @@ export function AppShell({
 
 function MenuLink({ href, icon, label }: { href: string; icon: string; label: string }) {
   return (
-    <Link role="menuitem" href={href} className="flex items-center gap-2 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
-      <span aria-hidden="true">{icon}</span>
-      {label}
+    <Link
+      role="menuitem"
+      href={href}
+      className="flex shrink-0 items-center gap-3 px-4 py-1.5 text-sm leading-snug text-ink-700 hover:bg-ink-50"
+    >
+      {/* ช่องไอคอนกว้างเท่ากันทุกแถว ข้อความจึงตรงแนวเดียวกัน */}
+      <span aria-hidden="true" className="w-6 shrink-0 text-center">
+        {icon}
+      </span>
+      <span className="min-w-0 truncate">{label}</span>
     </Link>
   );
 }
