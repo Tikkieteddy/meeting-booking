@@ -330,6 +330,10 @@ export const th = {
   'notify.unlinkLine': 'ยกเลิกการเชื่อม LINE',
   'notify.lineLinkCode': 'รหัสเชื่อมบัญชี (ใช้ครั้งเดียว หมดอายุใน {minutes} นาที)',
   'notify.lineLinked': 'เชื่อมบัญชี LINE แล้ว',
+  'notify.copyCode': 'คัดลอก',
+  'notify.copied': 'คัดลอกแล้ว ✓',
+  'notify.copyFailed': 'คัดลอกอัตโนมัติไม่ได้ กรุณากดค้างที่รหัสแล้วเลือกคัดลอก',
+  'notify.lineSendHint': 'กด "คัดลอก" แล้วไปวางในแชต LINE "TNN จองห้องประชุม" แล้วกดส่ง',
 
   'admin.dashboard': 'ภาพรวมระบบ',
   'admin.totalBookings': 'จำนวนการจอง',

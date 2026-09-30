@@ -71,6 +71,8 @@ export const en: Partial<Record<MessageKey, string>> = {
   'map.useMyLocation': 'Use my current location',
   'map.clearPin': 'Remove pin',
   'map.loading': 'Loading map…',
+  'notify.copyCode': 'Copy',
+  'notify.copied': 'Copied ✓',
 
   'status.pending': 'Pending',
   'status.confirmed': 'Confirmed',

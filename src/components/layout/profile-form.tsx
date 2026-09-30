@@ -39,6 +39,40 @@ export function ProfileForm({ profile, preferences, lineLink }: Props) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [prefs, setPrefs] = useState(preferences);
   const [linkCode, setLinkCode] = useState<{ code: string; expiresInMinutes: number } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  /*
+   * คัดลอกรหัสเชื่อม LINE — ผู้ใช้ส่วนใหญ่ทำบนมือถือแล้วสลับไปแอป LINE
+   * ใช้ Clipboard API ก่อน (ต้องเป็น https ซึ่งเว็บจริงเป็นอยู่แล้ว)
+   * ถ้าเบราว์เซอร์ไม่ยอม ถอยไปวิธีเลือกข้อความแล้วสั่งคัดลอกแบบเดิม
+   */
+  const copyLinkCode = async (code: string) => {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(code);
+      ok = true;
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = code;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      try {
+        ok = document.execCommand('copy');
+      } catch {
+        ok = false;
+      }
+      area.remove();
+    }
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } else {
+      toast.show(t('notify.copyFailed'), 'error');
+    }
+  };
 
   const run = async (fn: () => Promise<void>, success: string) => {
     setBusy(true);
@@ -271,12 +305,24 @@ export function ProfileForm({ profile, preferences, lineLink }: Props) {
                   กดขอรหัส แล้วส่งรหัสนั้นในแชตบัญชีทางการของระบบ เพื่อยืนยันว่าเป็นคุณเอง
                 </p>
                 {linkCode && (
-                  <p className="mt-3 rounded-lg bg-brand-50 px-3 py-2 text-lg font-bold tracking-widest text-brand-700">
-                    {linkCode.code}
-                    <span className="ms-2 align-middle text-xs font-normal text-ink-500">
+                  <div className="mt-3 rounded-lg bg-brand-50 px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* select-all: แตะครั้งเดียวเลือกทั้งรหัส เผื่อผู้ใช้ไม่กดปุ่มคัดลอก */}
+                      <span className="select-all font-mono text-xl font-bold tracking-widest text-brand-700">
+                        {linkCode.code}
+                      </span>
+                      <Button size="sm" onClick={() => void copyLinkCode(linkCode.code)}>
+                        {copied ? t('notify.copied') : t('notify.copyCode')}
+                      </Button>
+                      <span role="status" className="sr-only">
+                        {copied ? t('notify.copied') : ''}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-ink-600">{t('notify.lineSendHint')}</p>
+                    <p className="mt-0.5 text-xs text-ink-500">
                       {t('notify.lineLinkCode', { minutes: linkCode.expiresInMinutes })}
-                    </span>
-                  </p>
+                    </p>
+                  </div>
                 )}
                 <Button
                   variant="secondary"
