@@ -80,7 +80,7 @@ export function CalendarToolbar({
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <div className="me-2 hidden flex-col 2xl:flex">
           <p className="text-xl font-bold leading-tight text-ink-900">{t('calendar.title')}</p>
-          <p className="text-xs text-ink-600">{t('calendar.subtitle')}</p>
+          <p className="text-xs text-ink-700">{t('calendar.subtitle')}</p>
         </div>
 
         {/* เลือกวันที่: กดที่ป้ายวันที่เพื่อเปิดปฏิทินของเครื่อง */}
@@ -221,6 +221,12 @@ export function CalendarToolbar({
             {t('search.filterShort')}
             <span className="hidden sm:inline">{t('search.filterMore')}</span>
           </span>
+        </Button>
+
+        {/* พิมพ์ตาราง / บันทึกเป็น PDF ผ่านหน้าต่างพิมพ์ของเบราว์เซอร์ (เลือก "บันทึกเป็น PDF" ได้) */}
+        <Button variant="ghost" size="md" onClick={() => window.print()} className="ms-auto hidden shrink-0 md:inline-flex" data-print-hide>
+          <span aria-hidden="true">🖨</span>
+          {t('calendar.print')}
         </Button>
 
         {loading && (

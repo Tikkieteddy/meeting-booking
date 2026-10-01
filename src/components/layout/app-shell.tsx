@@ -223,7 +223,7 @@ export function AppShell({
       */}
       <main
         id="main"
-        className="flex flex-1 flex-col overflow-hidden bg-[#f7f5f3] md:mx-4 md:my-4 md:rounded-[1.25rem] md:border md:border-white/60 md:bg-white/[0.8] md:shadow-[0_24px_48px_-12px_rgb(0_0_0/0.35)] md:backdrop-blur-2xl lg:mx-6"
+        className="flex flex-1 flex-col overflow-hidden bg-[#f7f5f3] md:mx-4 md:my-4 md:rounded-[1.25rem] md:border md:border-white/60 md:bg-white/[0.48] md:shadow-[0_24px_48px_-12px_rgb(0_0_0/0.35)] md:backdrop-blur-2xl lg:mx-6"
       >
         {children}
       </main>

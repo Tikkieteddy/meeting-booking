@@ -140,7 +140,7 @@ export function CalendarClient({
       {/* พื้นที่ปฏิทิน — เลื่อนเฉพาะในกรอบนี้ หน้าหลักไม่ต้องเลื่อน (บรีฟข้อ 1, AC09) */}
       <section
         aria-label={`ปฏิทิน${t(`view.${view}` as 'view.day')}`}
-        className="flex min-h-0 flex-1 flex-col bg-white/40"
+        className="flex min-h-0 flex-1 flex-col bg-white/25"
       >
         {error ? (
           <div className="p-6">

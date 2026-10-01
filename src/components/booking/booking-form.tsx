@@ -44,6 +44,8 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
   const [attendeeCount, setAttendeeCount] = useState(1);
   const [attendees, setAttendees] = useState<AttendeeChip[]>([]);
   const [privacy, setPrivacy] = useState<'public' | 'busy_only' | 'private'>('public');
+  const [priority, setPriority] = useState<'normal' | 'urgent' | 'vip' | 'internal'>('normal');
+  const [category, setCategory] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
@@ -109,6 +111,8 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         attendees: attendees.map((a) => ({ email: a.email, displayName: a.displayName, profileId: a.profileId })),
         resources: selectedAmenities.map((amenityCode) => ({ amenityCode })),
         privacy,
+        priority,
+        category: category.trim() || null,
         idempotencyKey,
         overrideReason: overrideReason || null,
         ...(reminderLeads !== null ? { reminderLeads } : {}),
@@ -289,6 +293,21 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
               <option value="busy_only">{t('booking.privacy.busy_only')}</option>
               <option value="private">{t('booking.privacy.private')}</option>
             </Select>
+          </Field>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t('booking.priority')} htmlFor="bk-priority">
+            <Select id="bk-priority" value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)}>
+              {(['normal', 'urgent', 'vip', 'internal'] as const).map((p) => (
+                <option key={p} value={p}>
+                  {t(`booking.priority.${p}` as 'booking.priority.normal')}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t('booking.category')} htmlFor="bk-category" hint={t('booking.categoryHint')} error={fieldErrors.category}>
+            <Input id="bk-category" value={category} onChange={(event) => setCategory(event.target.value)} maxLength={40} />
           </Field>
         </div>
 

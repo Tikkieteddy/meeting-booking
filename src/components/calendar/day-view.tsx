@@ -165,8 +165,8 @@ export function DayView({
           {/* หัวคอลัมน์ห้อง — อยู่ในกล่องเลื่อนเดียวกับตาราง เลื่อนข้างไปพร้อมกัน และติดขอบบนเมื่อเลื่อนลง */}
           {/* แสดงชื่อห้องเสมอ แม้มีห้องเดียว (ยกเว้นมือถือที่มีแถบเลื่อนห้องบอกชื่ออยู่แล้ว) */}
           {columns.length > 0 && !oneAtATime && (
-            <div className="sticky top-0 z-30 flex border-b border-ink-200 bg-white/85 backdrop-blur-sm">
-              <div className="sticky start-0 z-10 w-14 shrink-0 bg-white/85 sm:w-16" />
+            <div className="sticky top-0 z-30 flex border-b border-ink-200 bg-white/60 backdrop-blur-sm">
+              <div className="sticky start-0 z-10 w-14 shrink-0 bg-white/60 sm:w-16" />
               {columns.map((room) => {
                 const level = occupancyOf(
                   bookings.filter((b) => b.roomId === room.id),
@@ -202,7 +202,7 @@ export function DayView({
           )}
           <div className="relative flex" style={{ height: gridHeight }}>
             {/* แกนเวลา */}
-            <div className="sticky start-0 z-20 w-14 shrink-0 bg-white/70 backdrop-blur-sm sm:w-16">
+            <div className="sticky start-0 z-20 w-14 shrink-0 bg-white/45 backdrop-blur-sm sm:w-16">
               {hours.map((hour, index) => (
                 <div
                   key={hour.minutes}

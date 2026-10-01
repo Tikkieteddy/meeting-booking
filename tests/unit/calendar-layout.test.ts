@@ -17,6 +17,8 @@ function booking(id: string, start: string, end: string): CalendarBooking {
     canSeeDetails: true,
     isMine: false,
     checkedIn: false,
+    priority: 'normal',
+    category: null,
   };
 }
 

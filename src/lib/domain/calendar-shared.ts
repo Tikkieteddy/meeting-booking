@@ -26,7 +26,14 @@ export type CalendarBooking = {
   canSeeDetails: boolean;
   isMine: boolean;
   checkedIn: boolean;
+  /** ป้ายความสำคัญ (migration 012) — ซ่อนเป็น normal ถ้าไม่มีสิทธิ์เห็นรายละเอียด */
+  priority: BookingPriority;
+  /** หมวดสั้น ๆ ที่ผู้จองพิมพ์เอง เช่น "การตลาด" */
+  category: string | null;
 };
+
+export const BOOKING_PRIORITIES = ['normal', 'urgent', 'vip', 'internal'] as const;
+export type BookingPriority = (typeof BOOKING_PRIORITIES)[number];
 
 export type CalendarClosure = { roomId: string; startsAt: string; endsAt: string; reason: string };
 export type CalendarHoliday = { dateISO: string; name: string };

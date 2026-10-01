@@ -40,10 +40,12 @@ async function fetchBookings(
     can_see_details: boolean;
     booker_profile_id: string;
     checked_in_at: Date | null;
+    priority: string;
+    category: string | null;
   }>(
     `SELECT v.id, v.room_id, v.title, v.starts_at, v.ends_at, v.status, v.privacy,
             v.booker_name, v.booker_department, v.attendee_count, v.can_see_details,
-            v.booker_profile_id, v.checked_in_at
+            v.booker_profile_id, v.checked_in_at, v.priority, v.category
        FROM app.v_calendar_bookings v
       WHERE v.status NOT IN ('cancelled', 'rejected')
         AND v.starts_at < $2
@@ -66,6 +68,8 @@ async function fetchBookings(
     canSeeDetails: r.can_see_details,
     isMine: opts.currentUserId !== null && r.booker_profile_id === opts.currentUserId,
     checkedIn: r.checked_in_at !== null,
+    priority: (r.priority ?? 'normal') as CalendarBooking['priority'],
+    category: r.category,
   }));
 }
 

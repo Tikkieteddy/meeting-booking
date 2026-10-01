@@ -620,9 +620,10 @@ describe('การจองซ้ำแบบ Google Calendar (migration 011)',
 
     const result = await createRecurringBookings(ctxFor(world, 'employee'), actorFor(world, 'employee'), {
       ...baseBooking({ dateISO: start }),
-      recurrence: { frequency: 'monthly', intervalCount: 1, monthWeek: 2, occurrenceCount: 3 },
+      // 2 ครั้ง (เดือนหน้า + เดือนถัดไป) ให้อยู่ในช่วงจองล่วงหน้าของห้องทดสอบเสมอ ไม่ว่ารันวันไหน
+      recurrence: { frequency: 'monthly', intervalCount: 1, monthWeek: 2, occurrenceCount: 2 },
     });
-    expect(result.created).toHaveLength(3);
+    expect(result.created).toHaveLength(2);
     expect(result.skipped).toEqual([]);
 
     const series = await withServiceTx(async (sql) => {
@@ -641,5 +642,42 @@ describe('การจองซ้ำแบบ Google Calendar (migration 011)',
       recurrence: { frequency: 'yearly', intervalCount: 1, occurrenceCount: 1 },
     });
     expect(result.created).toHaveLength(1);
+  });
+});
+
+describe('ป้ายความสำคัญและหมวด (migration 012)', () => {
+  it('บันทึกได้ แสดงในปฏิทิน และซ่อนจากคนที่ไม่มีสิทธิ์เห็นรายละเอียด', async () => {
+    const { booking } = await createBooking(
+      ctxFor(world, 'employee'),
+      actorFor(world, 'employee'),
+      baseBooking({ priority: 'urgent', category: 'การตลาด', privacy: 'busy_only' }),
+    );
+    const mine = await getCalendarData(ctxFor(world, 'employee'), {
+      view: 'day',
+      dateISO,
+      roomId: world.rooms.simple,
+      organizationId: world.organizationId,
+    });
+    const own = mine.bookings.find((b) => b.id === booking.id)!;
+    expect(own.priority).toBe('urgent');
+    expect(own.category).toBe('การตลาด');
+
+    const other = await getCalendarData(ctxFor(world, 'employee2'), {
+      view: 'day',
+      dateISO,
+      roomId: world.rooms.simple,
+      organizationId: world.organizationId,
+    });
+    const hidden = other.bookings.find((b) => b.id === booking.id)!;
+    expect(hidden.canSeeDetails).toBe(false);
+    expect(hidden.priority).toBe('normal');
+    expect(hidden.category).toBeNull();
+  });
+
+  it('ฐานข้อมูลปฏิเสธค่าที่ไม่รู้จัก แม้โค้ดจะพลาด', async () => {
+    const { booking } = await createBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), baseBooking());
+    await expect(
+      withServiceTx((sql) => sql.query("UPDATE bookings SET priority = 'super' WHERE id = $1", [booking.id])),
+    ).rejects.toThrow(/bookings_priority_valid/);
   });
 });

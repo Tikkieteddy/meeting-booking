@@ -334,3 +334,28 @@ body {
     display: none !important;
   }
 }
+
+/*
+ * พิมพ์ตาราง / บันทึกเป็น PDF (ปุ่มในแถบเครื่องมือปฏิทิน)
+ * ซ่อนฉากหลัง แถบหัว เมนู และปุ่ม แล้วปล่อยตารางให้ยาวเต็มกระดาษ ไม่ตัดในกล่องเลื่อน
+ */
+@media print {
+  .app-backdrop,
+  header,
+  nav,
+  [data-print-hide],
+  [data-tour='bookbutton'],
+  [data-tour='search'] {
+    display: none !important;
+  }
+  body,
+  main,
+  .calendar-scroll {
+    background: #fff !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+}

@@ -61,7 +61,7 @@ export function WeekView({
       <div className="calendar-scroll flex-1 overflow-auto">
         <div className="min-w-[44rem]">
           {/* หัววัน — คงที่เมื่อเลื่อนขึ้นลง */}
-          <div className="sticky top-0 z-30 flex border-b border-ink-200 bg-brand-50/80 backdrop-blur-sm">
+          <div className="sticky top-0 z-30 flex border-b border-ink-200 bg-brand-50/60 backdrop-blur-sm">
             <div className="w-14 shrink-0 sm:w-16" />
             {days.map((dateISO) => {
               const isToday = dateISO === todayISO;
@@ -104,12 +104,12 @@ export function WeekView({
           </div>
 
           <div className="relative flex" style={{ height: gridHeight }}>
-            <div className="sticky start-0 z-20 w-14 shrink-0 bg-white/70 backdrop-blur-sm sm:w-16">
+            <div className="sticky start-0 z-20 w-14 shrink-0 bg-white/45 backdrop-blur-sm sm:w-16">
               {hours.map((hour, index) => (
                 <div
                   key={hour.minutes}
                   className={cx(
-                    'absolute pe-2 text-end text-[0.6875rem] font-semibold tabular-nums text-ink-600',
+                    'absolute pe-2 text-end text-[0.6875rem] font-semibold tabular-nums text-ink-800',
                     index === 0 ? 'translate-y-0.5' : '-translate-y-1/2',
                   )}
                   style={{ top: ((hour.minutes - window.openMinutes) / 60) * HOUR_PX, width: '100%' }}

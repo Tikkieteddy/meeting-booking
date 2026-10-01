@@ -57,6 +57,8 @@ export type CreateBookingInput = {
   overrideReason?: string | null;
   /** เวลาเตือนของผู้จองสำหรับการจองนี้ (นาทีก่อนเริ่ม, 0 = ตอนเริ่ม) — ไม่ระบุ = ใช้ค่าตั้งส่วนตัว */
   reminderLeads?: number[] | null;
+  priority?: 'normal' | 'urgent' | 'vip' | 'internal';
+  category?: string | null;
 };
 
 export type BookingRecord = {
@@ -466,8 +468,8 @@ export async function createBooking(
                                buffer_before_minutes, buffer_after_minutes, status, privacy,
                                booker_profile_id, booker_name, booker_email, booker_department,
                                attendee_count, capacity_override_reason, check_in_token,
-                               idempotency_key, created_by, reminder_leads)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$12,$20)
+                               idempotency_key, created_by, reminder_leads, priority, category)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$12,$20,$21,$22)
          RETURNING id`,
         [
           actor.organizationId,
@@ -490,6 +492,8 @@ export async function createBooking(
           room.policy.checkInRequired ? newToken(12) : null,
           input.idempotencyKey ?? null,
           input.reminderLeads ?? null,
+          input.priority ?? 'normal',
+          input.category?.trim() || null,
         ],
       );
       bookingId = res.rows[0]!.id;
@@ -788,7 +792,7 @@ export async function getBookingDetail(ctx: DbContext, bookingId: string): Promi
 // แก้ไข / ยกเลิก
 // ============================================================
 export type UpdateBookingInput = Partial<
-  Pick<CreateBookingInput, 'title' | 'purpose' | 'notes' | 'dateISO' | 'startTime' | 'endTime' | 'attendeeCount' | 'privacy' | 'attendees' | 'resources' | 'reminderLeads'>
+  Pick<CreateBookingInput, 'title' | 'purpose' | 'notes' | 'dateISO' | 'startTime' | 'endTime' | 'attendeeCount' | 'privacy' | 'attendees' | 'resources' | 'reminderLeads' | 'priority' | 'category'>
 > & { expectedVersion: number };
 
 export async function updateBooking(
@@ -833,6 +837,8 @@ export async function updateBooking(
                 starts_at = $5, ends_at = $6, attendee_count = $7,
                 privacy = coalesce($8, privacy),
                 reminder_leads = CASE WHEN $13 THEN $14::int[] ELSE reminder_leads END,
+                priority = coalesce($15, priority),
+                category = CASE WHEN $16 THEN $17 ELSE category END,
                 version = version + 1, updated_by = $9
           WHERE id = $1 AND version = $10`,
         [
@@ -850,6 +856,9 @@ export async function updateBooking(
           input.notes !== undefined,
           remindersChanged,
           input.reminderLeads ?? null,
+          input.priority ?? null,
+          input.category !== undefined,
+          input.category?.trim() || null,
         ],
       );
       if (res.rowCount === 0) throw new ConflictError(t('error.versionConflict'));

@@ -98,3 +98,10 @@ export function groupByDate(bookings: readonly CalendarBooking[], timezone = TZ)
   }
   return map;
 }
+
+/** สีป้ายความสำคัญ — พื้นเข้มตัวขาว/พื้นอ่อนตัวเข้ม ผ่าน WCAG AA ทุกสี */
+export const PRIORITY_PILL: Record<string, string> = {
+  urgent: 'bg-red-600 text-white',
+  vip: 'bg-purple-700 text-white',
+  internal: 'bg-stone-200 text-stone-900',
+};

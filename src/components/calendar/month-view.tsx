@@ -41,14 +41,26 @@ export function MonthView({
     // หลังเวลาแสดง "ชื่อผู้จอง" (ไม่ใช่ชื่อประชุม) ตามที่ผู้ใช้ขอ
     list.push({
       label: formatTimeRange(new Date(b.startsAt), new Date(b.endsAt), TZ),
-      who: b.bookerName,
+      // เฉพาะชื่อต้น ไม่แสดงนามสกุล (ผู้ใช้ขอ 1 ต.ค. 2569) — ช่องวันแคบ และพอให้รู้ว่าใครจอง
+      who: firstName(b.bookerName),
     });
     rangesByDay.set(dateISO, list);
   }
   const MAX_RANGES = 3;
 
+  // อัตราใช้งานเดือนนี้ (แบบจาก Stitch): นาทีที่ถูกจอง ÷ นาทีที่ห้องเปิดให้จอง ของวันในเดือนนี้เท่านั้น
+  const inMonth = days.filter((d) => d.dateISO.startsWith(currentMonth));
+  const bookedMinutes = inMonth.reduce((sum, d) => sum + d.bookedMinutes, 0);
+  const availableMinutes = inMonth.reduce((sum, d) => sum + d.availableMinutes, 0);
+  const bookingTotal = inMonth.reduce((sum, d) => sum + d.bookingCount, 0);
+  const utilization = availableMinutes > 0 ? Math.round((bookedMinutes / availableMinutes) * 1000) / 10 : 0;
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      <p className="flex shrink-0 flex-wrap items-center gap-x-2 px-3 pt-2 text-xs text-ink-800 sm:px-4">
+        <span aria-hidden="true" className="size-2 rounded-full bg-accent" />
+        {t('calendar.monthUtilization', { percent: utilization, count: bookingTotal })}
+      </p>
       <div className="grid shrink-0 grid-cols-7 gap-1.5 px-2 pt-2 sm:px-3">
         {weekdayHeader.map((wd) => (
           <div key={wd} className="rounded-lg bg-brand-50 px-1 py-2 text-center text-[0.6875rem] font-semibold text-ink-700">
@@ -157,4 +169,10 @@ export function MonthView({
       </div>
     </div>
   );
+}
+
+/** ชื่อต้นจาก "ชื่อ นามสกุล" — ถ้าไม่มีช่องว่างคืนทั้งชื่อ */
+function firstName(fullName: string | null): string | null {
+  if (!fullName) return null;
+  return fullName.trim().split(/\s+/)[0] ?? fullName;
 }

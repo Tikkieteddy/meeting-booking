@@ -117,6 +117,9 @@ export const createBookingSchema = z.object({
   overrideReason: safeText(300, 'เหตุผล').optional().nullable(),
   // เวลาเตือนก่อนประชุมของผู้จองสำหรับการจองนี้ (นาที, 0 = ตอนเริ่ม) — ไม่ส่งมา = ใช้ค่าตั้งส่วนตัว
   reminderLeads: reminderLeadsSchema.optional().nullable(),
+  // ป้ายความสำคัญและหมวด (migration 012)
+  priority: z.enum(['normal', 'urgent', 'vip', 'internal']).optional(),
+  category: safeText(40, 'หมวด').optional().nullable(),
 });
 
 export const updateBookingSchema = createBookingSchema

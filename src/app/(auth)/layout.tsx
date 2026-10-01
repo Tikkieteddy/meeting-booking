@@ -13,6 +13,12 @@ const FEATURES = [
 ] as const;
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  /*
+   * ช่องทางติดต่อ IT Helpdesk (แบบจาก Stitch) — ตั้งใน Vercel ชื่อ HELPDESK_CONTACT เช่น "โทร 1400"
+   * อ่านตรงจาก process.env (ไม่ผ่าน env()) เพราะหน้ากลุ่มนี้บางหน้าประกอบล่วงหน้าตอน build
+   * และ env() จะบังคับให้มี DATABASE_URL — ค่านี้ไม่ใช่ความลับ ถ้าไม่ได้ตั้งจะไม่แสดง
+   */
+  const helpdesk = process.env.HELPDESK_CONTACT?.trim().slice(0, 80);
   return (
     <main className="relative flex min-h-dvh flex-col px-4 py-6 sm:px-8 lg:px-12">
       <div aria-hidden="true" className="app-backdrop" />
@@ -61,6 +67,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <p className="mb-4 text-center text-sm font-semibold text-white lg:hidden">{t('brand.slogan')}</p>
             <div className="rounded-3xl bg-white/[0.97] p-6 text-ink-800 shadow-2xl backdrop-blur-xl sm:p-8">{children}</div>
             <p className="mt-6 text-center text-xs text-white/85">{t('auth.internalSystem')}</p>
+            {helpdesk && <p className="mt-2 text-center text-xs text-white/85">{t('auth.helpdesk', { contact: helpdesk })}</p>}
           </div>
         </section>
       </div>
