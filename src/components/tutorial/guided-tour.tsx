@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button } from '@/components/ui/primitives';
 import { t, type MessageKey } from '@/lib/i18n';
+import { BodyPortal } from '@/components/ui/body-portal';
 
 /**
  * ขั้นตอนของคำแนะนำการใช้งาน
@@ -157,7 +158,7 @@ export function GuidedTour({ onFinish, forceOpen }: { onFinish?: () => void; for
   }
 
   return (
-    <>
+    <BodyPortal>
       {/*
         จุดที่กำลังชี้: หรี่ทุกด้านด้วยแผ่นทึบ 4 แผ่นล้อมรอบ แล้วตีกรอบสีแบรนด์รอบช่องที่เว้นไว้
 
@@ -240,6 +241,6 @@ export function GuidedTour({ onFinish, forceOpen }: { onFinish?: () => void; for
           </div>
         </div>
       </div>
-    </>
+    </BodyPortal>
   );
 }
