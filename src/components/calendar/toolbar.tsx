@@ -5,7 +5,7 @@ import { MapLink } from '@/components/ui/map-link';
 import type { Room } from '@/lib/domain/rooms';
 import { Button, cx } from '@/components/ui/primitives';
 import { t } from '@/lib/i18n';
-import { addDaysISO, formatThaiDate, formatThaiMonth, startOfWeekISO, thaiWeekday, weekdayOfISO } from '@/lib/util/time';
+import { addDaysISO, formatThaiDate, formatThaiDateShort, formatThaiMonth, startOfWeekISO, thaiWeekday, weekdayOfISO } from '@/lib/util/time';
 
 /**
  * แถบเครื่องมือของหน้าปฏิทิน (บรีฟข้อ 1 และ 2)
@@ -68,6 +68,8 @@ export function CalendarToolbar({
       : view === 'week'
         ? weekRangeLabel(dateISO)
         : `${thaiWeekday(weekdayOfISO(dateISO))} ${periodLabel}`;
+  // จอมือถือใช้ชื่อวันแบบย่อ ไม่ให้วันที่ถูกตัดเป็น "…"
+  const periodShort = view === 'day' ? `${thaiWeekday(weekdayOfISO(dateISO), true)} ${formatThaiDateShort(dateISO)}` : periodText;
 
   const iconButton =
     'flex size-10 shrink-0 items-center justify-center rounded-lg text-ink-700 hover:bg-ink-100 focus-visible:bg-ink-100';
@@ -76,7 +78,7 @@ export function CalendarToolbar({
     <div className="shrink-0 border-b border-ink-200/70 px-3 pb-3 pt-3 sm:px-6 sm:pt-5">
       {/* แถวที่ 1: ชื่อระบบ · วันที่ · ห้อง · สวิตช์มุมมอง (ตามแบบจาก Stitch) */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        <div className="me-2 hidden flex-col xl:flex">
+        <div className="me-2 hidden flex-col 2xl:flex">
           <p className="text-xl font-bold leading-tight text-ink-900">{t('calendar.title')}</p>
           <p className="text-xs text-ink-600">{t('calendar.subtitle')}</p>
         </div>
@@ -94,7 +96,8 @@ export function CalendarToolbar({
               📅
             </span>
             <span aria-live="polite" className="truncate whitespace-nowrap text-sm font-semibold text-ink-900">
-              {periodText}
+              <span className="sm:hidden">{periodShort}</span>
+              <span className="hidden sm:inline">{periodText}</span>
             </span>
             <label className="sr-only" htmlFor="calendar-date">
               {t('search.date')}
@@ -128,7 +131,7 @@ export function CalendarToolbar({
         </div>
 
         {/* เลือกห้อง พร้อมรูปห้อง */}
-        <div className="flex h-12 min-w-0 basis-full items-center gap-2 rounded-xl border border-ink-200 bg-white ps-1.5 pe-2 shadow-sm sm:max-w-sm sm:basis-auto sm:flex-1 lg:flex-none">
+        <div className="flex h-12 min-w-0 basis-full items-center gap-2 rounded-xl border border-ink-200 bg-white ps-1.5 pe-2 shadow-sm sm:max-w-xs sm:basis-auto sm:flex-1">
           <span
             aria-hidden="true"
             className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-ink-100 text-base"

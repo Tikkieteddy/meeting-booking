@@ -61,7 +61,7 @@ export function WeekView({
       <div className="calendar-scroll flex-1 overflow-auto">
         <div className="min-w-[44rem]">
           {/* หัววัน — คงที่เมื่อเลื่อนขึ้นลง */}
-          <div className="sticky top-0 z-30 flex border-b border-ink-200 bg-brand-50/95">
+          <div className="sticky top-0 z-30 flex border-b border-ink-200 bg-brand-50/80 backdrop-blur-sm">
             <div className="w-14 shrink-0 sm:w-16" />
             {days.map((dateISO) => {
               const isToday = dateISO === todayISO;
@@ -73,16 +73,16 @@ export function WeekView({
               return (
                 <div
                   key={dateISO}
-                  className={cx('min-w-24 flex-1 border-s border-ink-200/70 px-1 py-2 text-center', isToday && 'bg-brand-100/60')}
+                  className={cx('min-w-24 flex-1 border-s border-ink-200/70 px-1 py-1.5 text-center', isToday && 'bg-brand-100/60')}
                 >
                   <p className={cx('text-xs font-medium', isToday ? 'font-bold text-brand-800' : 'text-ink-700')}>
                     {thaiWeekday(weekdayOfISO(dateISO))}
                   </p>
                   {/* วันที่: วันนี้เป็นวงกลมส้มตามแบบ ตัวเลขขาวบนส้มเข้ม (ผ่าน AA) */}
-                  <p className="mt-1 flex justify-center">
+                  <p className="mt-0.5 flex justify-center">
                     <span
                       className={cx(
-                        'flex size-9 items-center justify-center rounded-full text-sm font-bold tabular-nums',
+                        'flex size-8 items-center justify-center rounded-full text-sm font-bold tabular-nums',
                         isToday ? 'bg-brand-500 text-white shadow-sm' : 'text-ink-900',
                       )}
                       title={formatThaiDateShort(dateISO)}
@@ -91,7 +91,7 @@ export function WeekView({
                     </span>
                   </p>
                   {isToday && <span className="sr-only">{t('common.today')}</span>}
-                  <span aria-hidden="true" className={cx('mx-auto mt-1.5 block h-1 w-6 rounded-full', OCCUPANCY_DOT[level])} />
+                  <span aria-hidden="true" className={cx('mx-auto mt-1 block h-1 w-6 rounded-full', OCCUPANCY_DOT[level])} />
                   <span className="sr-only">{t(`occupancy.${level}` as 'occupancy.free')}</span>
                   {holiday && (
                     <p className="truncate text-[0.625rem] text-red-600" title={holiday}>
@@ -104,11 +104,14 @@ export function WeekView({
           </div>
 
           <div className="relative flex" style={{ height: gridHeight }}>
-            <div className="sticky start-0 z-20 w-14 shrink-0 bg-ink-50/95 sm:w-16">
-              {hours.map((hour) => (
+            <div className="sticky start-0 z-20 w-14 shrink-0 bg-white/70 backdrop-blur-sm sm:w-16">
+              {hours.map((hour, index) => (
                 <div
                   key={hour.minutes}
-                  className="absolute -translate-y-1/2 pe-2 text-end text-[0.6875rem] font-semibold tabular-nums text-ink-600"
+                  className={cx(
+                    'absolute pe-2 text-end text-[0.6875rem] font-semibold tabular-nums text-ink-600',
+                    index === 0 ? 'translate-y-0.5' : '-translate-y-1/2',
+                  )}
                   style={{ top: ((hour.minutes - window.openMinutes) / 60) * HOUR_PX, width: '100%' }}
                 >
                   {hour.label}
@@ -206,7 +209,8 @@ export function WeekView({
                   {isToday && nowMinutes >= window.openMinutes && nowMinutes <= window.closeMinutes && (
                     <div
                       data-tour="nowline"
-                      className="now-line pointer-events-none absolute inset-x-0 z-20 h-0.5"
+                      // อยู่ใต้การ์ด (z-[5]) ไม่ขีดทับตัวหนังสือ
+                      className="now-line pointer-events-none absolute inset-x-0 z-[5] h-0.5"
                       style={{ top: ((nowMinutes - window.openMinutes) / 60) * HOUR_PX }}
                       aria-hidden="true"
                     />

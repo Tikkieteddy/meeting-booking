@@ -101,7 +101,7 @@ export function DayView({
               <p className="truncate text-sm font-bold text-ink-900">{current.name}</p>
               <p className="truncate text-xs text-ink-600">
                 {t('booking.capacity')} {current.capacity} {t('common.people')}
-                {current.floor ? ` · ชั้น ${current.floor}` : ''} · {t('calendar.roomOf', { n: safeIndex + 1, total: rooms.length })}
+                {current.floor ? ` · ชั้น ${current.floor}` : ''}
               </p>
             </div>
             <button
@@ -114,17 +114,16 @@ export function DayView({
               <span aria-hidden="true">›</span>
             </button>
           </div>
-          {nextRoom && (
-            <p className="mt-1 truncate text-center text-[0.6875rem] text-ink-600">
-              {t('calendar.nextRoomHint', { name: nextRoom.name })}
-            </p>
-          )}
+          <p className="mt-1 truncate text-center text-[0.6875rem] text-ink-600">
+            {t('calendar.roomOf', { n: safeIndex + 1, total: rooms.length })}
+            {nextRoom ? ` · ${t('calendar.nextRoomHint', { name: nextRoom.name })}` : ''}
+          </p>
         </div>
       )}
 
       {/* หัวคอลัมน์ห้อง (คงที่เมื่อเลื่อน) */}
       {columns.length > 1 && (
-        <div className="flex shrink-0 border-b border-ink-200 bg-ink-50/80">
+        <div className="flex shrink-0 border-b border-ink-200 bg-white/60">
           <div className="w-14 shrink-0 sm:w-16" />
           {columns.map((room) => {
             const level = occupancyOf(
@@ -151,11 +150,15 @@ export function DayView({
       <div ref={scrollRef} className="calendar-scroll flex-1 overflow-y-auto">
         <div className="relative flex" style={{ height: gridHeight }}>
           {/* แกนเวลา */}
-          <div className="sticky start-0 z-20 w-14 shrink-0 bg-ink-50/95 sm:w-16">
-            {hours.map((hour) => (
+          <div className="sticky start-0 z-20 w-14 shrink-0 bg-white/70 backdrop-blur-sm sm:w-16">
+            {hours.map((hour, index) => (
               <div
                 key={hour.minutes}
-                className="absolute -translate-y-1/2 pe-2 text-end text-[0.6875rem] font-semibold tabular-nums text-ink-600"
+                // ป้ายแรกชิดขอบบนพอดี ถ้าเลื่อนขึ้นครึ่งหนึ่งจะโดนหัวตารางบังจนอ่านไม่ออก
+                className={cx(
+                  'absolute pe-2 text-end text-[0.6875rem] font-semibold tabular-nums text-ink-600',
+                  index === 0 ? 'translate-y-0.5' : '-translate-y-1/2',
+                )}
                 style={{ top: ((hour.minutes - window.openMinutes) / 60) * HOUR_PX, width: '100%' }}
               >
                 {hour.label}
@@ -269,17 +272,27 @@ export function DayView({
 
           {/* เส้นเวลาปัจจุบัน */}
           {nowMinutes !== null && nowMinutes >= window.openMinutes && nowMinutes <= window.closeMinutes && (
-            <div
-              className="pointer-events-none absolute inset-x-0 z-30 flex items-center"
-              style={{ top: ((nowMinutes - window.openMinutes) / 60) * HOUR_PX }}
-              aria-hidden="true"
-            >
-              <span // red-500 กับตัวอักษรขาวได้แค่ 3.81:1 — ใช้ red-600 ที่ได้ 4.77:1 ผ่านเกณฑ์
-              className="ms-1 rounded-md bg-red-600 px-1.5 py-0.5 text-[0.625rem] font-bold tabular-nums text-white">
+            <>
+              {/*
+                เส้นอยู่ "ใต้" การ์ดการจอง (z-[5] < การ์ด z-10) จึงไม่ขีดทับตัวหนังสือในการ์ด
+                ส่วนป้ายเวลาอยู่ในแกนเวลาด้านซ้ายและลอยเหนือทุกอย่างในตาราง
+              */}
+              <div
+                className="pointer-events-none absolute inset-x-0 z-[5] flex items-center"
+                style={{ top: ((nowMinutes - window.openMinutes) / 60) * HOUR_PX }}
+                aria-hidden="true"
+              >
+                <span data-tour="nowline" className="now-line h-0.5 flex-1" />
+              </div>
+              <span
+                aria-hidden="true"
+                // red-500 กับตัวอักษรขาวได้แค่ 3.81:1 — ใช้ red-600 ที่ได้ 4.77:1 ผ่านเกณฑ์
+                className="pointer-events-none absolute start-1 z-30 -translate-y-1/2 rounded-md bg-red-600 px-1.5 py-0.5 text-[0.625rem] font-bold tabular-nums text-white"
+                style={{ top: ((nowMinutes - window.openMinutes) / 60) * HOUR_PX }}
+              >
                 {minutesToHhmm(nowMinutes)}
               </span>
-              <span data-tour="nowline" className="now-line h-0.5 flex-1" />
-            </div>
+            </>
           )}
         </div>
       </div>

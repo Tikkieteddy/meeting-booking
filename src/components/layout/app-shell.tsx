@@ -119,7 +119,7 @@ export function AppShell({
                 data-tour={item.href === '/bookings' ? 'mybookings' : undefined}
                 aria-current={pathname.startsWith(item.href) ? 'page' : undefined}
                 className={cx(
-                  'flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition-colors',
+                  'flex h-10 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-sm font-medium transition-colors',
                   pathname.startsWith(item.href) ? 'bg-white/15 text-white' : 'text-white/85 hover:bg-white/10 hover:text-white',
                 )}
               >
@@ -166,8 +166,8 @@ export function AppShell({
                 <span className="flex size-8 items-center justify-center rounded-full bg-brand-500 text-xs font-semibold text-white">
                   {user.fullName.trim().charAt(0) || '?'}
                 </span>
-                <span className="hidden text-start sm:block">
-                  <span className="block text-sm font-medium leading-tight text-white">{user.fullName}</span>
+                <span className="hidden text-start lg:block">
+                  <span className="block whitespace-nowrap text-sm font-medium leading-tight text-white">{user.fullName}</span>
                   <span className="block text-xs leading-tight text-white/80">{user.roleLabel}</span>
                 </span>
                 <span aria-hidden="true" className="text-xs text-white/80">
@@ -223,7 +223,7 @@ export function AppShell({
       */}
       <main
         id="main"
-        className="flex flex-1 flex-col overflow-hidden bg-[#f7f5f3] md:mx-4 md:my-4 md:rounded-[1.25rem] md:border md:border-white/60 md:bg-white/[0.94] md:shadow-[0_24px_48px_-12px_rgb(0_0_0/0.35)] md:backdrop-blur-xl lg:mx-6"
+        className="flex flex-1 flex-col overflow-hidden bg-[#f7f5f3] md:mx-4 md:my-4 md:rounded-[1.25rem] md:border md:border-white/60 md:bg-white/[0.8] md:shadow-[0_24px_48px_-12px_rgb(0_0_0/0.35)] md:backdrop-blur-2xl lg:mx-6"
       >
         {children}
       </main>
@@ -262,8 +262,9 @@ function BrandWordmark() {
   return (
     <>
       <span className="text-2xl font-extrabold leading-none tracking-tight text-accent">TNN</span>
-      <span aria-hidden="true" className="h-7 w-px bg-white/30" />
-      <span className="hidden flex-col leading-none sm:flex">
+      <span aria-hidden="true" className="hidden h-7 w-px bg-white/30 lg:block" />
+      {/* ข้อความยาวแสดงเฉพาะจอใหญ่ จอกลาง (แท็บเล็ต) ที่มีเมนูด้วยจะล้นแถบ */}
+      <span className="hidden flex-col leading-none lg:flex">
         <span className="text-sm font-semibold uppercase tracking-[0.25em] text-white">Meeting Room</span>
         <span className="mt-1 text-[0.625rem] uppercase tracking-[0.15em] text-white/75">Simple booking. Bigger ideas.</span>
       </span>
