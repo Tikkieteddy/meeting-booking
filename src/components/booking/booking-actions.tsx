@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/overlay';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
+import { EditBookingDialog } from './edit-booking-dialog';
 
 /** ปุ่มจัดการการจองในหน้ารายละเอียดแบบลิงก์ตรง */
 export function BookingActions({
@@ -14,9 +15,11 @@ export function BookingActions({
   seriesId,
   canCancel,
   canCheckIn,
+  canEdit,
 }: {
   bookingId: string;
   seriesId: string | null;
+  canEdit: boolean;
   canCancel: boolean;
   canCheckIn: boolean;
 }) {
@@ -26,6 +29,7 @@ export function BookingActions({
   const [reason, setReason] = useState('');
   const [scope, setScope] = useState<'this' | 'series'>('this');
   const [busy, setBusy] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const run = async (fn: () => Promise<void>, successMessage: string) => {
     setBusy(true);
@@ -49,6 +53,17 @@ export function BookingActions({
       >
         {t('booking.downloadIcs')}
       </a>
+      {canEdit && (
+        <Button variant="secondary" disabled={busy} onClick={() => setEditOpen(true)}>
+          {t('booking.edit.button')}
+        </Button>
+      )}
+      <EditBookingDialog
+        bookingId={bookingId}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => router.refresh()}
+      />
       {canCheckIn && (
         <Button
           variant="secondary"

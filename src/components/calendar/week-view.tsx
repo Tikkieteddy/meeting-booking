@@ -198,6 +198,7 @@ export function WeekView({
                           booking={booking}
                           onOpen={onOpenBooking}
                           compact={geo.height < 44}
+                          firstNameOnly
                           showRoom={!selectedRoomId}
                           roomName={rooms.find((r) => r.id === booking.roomId)?.name}
                           style={{ position: 'relative', height: '100%' }}

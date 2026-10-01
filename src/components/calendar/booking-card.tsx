@@ -4,7 +4,7 @@ import type { CalendarBooking } from '@/lib/domain/calendar-shared';
 import { cx } from '@/components/ui/primitives';
 import { toTimeHHmm } from '@/lib/util/time';
 import { t } from '@/lib/i18n';
-import { bookingTone, PRIORITY_PILL, TZ } from './shared';
+import { bookingTone, firstName, PRIORITY_PILL, TZ } from './shared';
 
 const STATUS_SYMBOL: Record<string, string> = {
   pending: '⏳',
@@ -23,6 +23,7 @@ export function BookingCard({
   style,
   showRoom,
   roomName,
+  firstNameOnly,
 }: {
   booking: CalendarBooking;
   onOpen: (booking: CalendarBooking) => void;
@@ -30,6 +31,8 @@ export function BookingCard({
   style?: React.CSSProperties;
   showRoom?: boolean;
   roomName?: string;
+  /** แสดงผู้จองเฉพาะชื่อต้น ไม่มีนามสกุลและแผนก — ใช้ในรายสัปดาห์ที่คอลัมน์แคบ (ผู้ใช้ขอ 1 ต.ค. 2569) */
+  firstNameOnly?: boolean;
 }) {
   const start = toTimeHHmm(new Date(booking.startsAt), TZ);
   const end = toTimeHHmm(new Date(booking.endsAt), TZ);
@@ -37,8 +40,9 @@ export function BookingCard({
   const symbol = STATUS_SYMBOL[booking.status] ?? '•';
 
   const timeRange = `${start}\u2013${end}`;
-  const bookerLine = booking.bookerName
-    ? `${booking.bookerName}${booking.bookerDepartment ? ` \u00b7 ${booking.bookerDepartment}` : ''}`
+  const bookerName = firstNameOnly ? firstName(booking.bookerName) : booking.bookerName;
+  const bookerLine = bookerName
+    ? `${bookerName}${booking.bookerDepartment && !firstNameOnly ? ` \u00b7 ${booking.bookerDepartment}` : ''}`
     : '';
   const showBooker = !compact && booking.canSeeDetails && Boolean(booking.bookerName);
   const showRoomLine = !compact && Boolean(showRoom) && Boolean(roomName);
@@ -77,7 +81,7 @@ export function BookingCard({
           {booking.canSeeDetails ? (
             <span className="min-w-0 truncate">
               <span className="font-bold">{booking.title}</span>
-              {booking.bookerName && <span className="opacity-90"> · {booking.bookerName}</span>}
+              {bookerName && <span className="opacity-90"> · {bookerName}</span>}
             </span>
           ) : (
             <span className="min-w-0 truncate opacity-90">{t('booking.privateHidden')}</span>

@@ -1,5 +1,5 @@
 import { roomSchema } from '@/lib/validation/schemas';
-import { createRoom, listRooms } from '@/lib/domain/rooms';
+import { createRoom, listAmenities, listRooms } from '@/lib/domain/rooms';
 import { currentActor } from '@/lib/api/actor';
 import { requirePermission } from '@/lib/auth/current-user';
 import { apiOk, withApi } from '@/lib/api/respond';
@@ -9,8 +9,12 @@ export const dynamic = 'force-dynamic';
 export const GET = withApi(async (request: Request) => {
   const { ctx } = await currentActor();
   const includeArchived = new URL(request.url).searchParams.get('includeArchived') === 'true';
-  const rooms = await listRooms(ctx, { includeArchived, includeInactive: includeArchived });
-  return apiOk({ rooms });
+  // รายการอุปกรณ์ส่งมาด้วย — ฟอร์มแก้ไขการจองที่เปิดจากหน้ารายการ/ลิงก์ตรงต้องใช้แสดงตัวเลือก
+  const [rooms, amenities] = await Promise.all([
+    listRooms(ctx, { includeArchived, includeInactive: includeArchived }),
+    listAmenities(ctx),
+  ]);
+  return apiOk({ rooms, amenities });
 });
 
 /** เพิ่มห้องใหม่ — ห้องจะปรากฏใน dropdown, search และปฏิทินทันที (AC06) */

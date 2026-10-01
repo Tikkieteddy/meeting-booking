@@ -28,6 +28,7 @@ export const GET = withApi(async (_request: Request, context: { params: Promise<
       checkedInAt: detail.checkedInAt?.toISOString() ?? null,
       approvals: detail.approvals.map((a) => ({ ...a, decidedAt: a.decidedAt?.toISOString() ?? null })),
       permissions: {
+        isOwner,
         canEdit: editableStatus && (isOwner || isManager),
         canCancel: editableStatus && (isOwner || isManager),
         canCheckIn:

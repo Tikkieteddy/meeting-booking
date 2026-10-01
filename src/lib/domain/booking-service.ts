@@ -704,7 +704,9 @@ export type BookingDetail = BookingRecord & {
   createdAt: Date;
   cancelReason: string | null;
   canSeeDetails: boolean;
-  attendees: { email: string; displayName: string | null; kind: string; response: string }[];
+  priority: string;
+  category: string | null;
+  attendees: { email: string; displayName: string | null; kind: string; response: string; profileId: string | null }[];
   resources: { amenityCode: string; nameTh: string; quantity: number }[];
   approvals: { id: string; step: number; status: string; comment: string | null; approverName: string | null; decidedAt: Date | null }[];
   policy: RoomPolicy;
@@ -724,16 +726,24 @@ export async function getBookingDetail(ctx: DbContext, bookingId: string): Promi
       created_at: Date;
       cancel_reason: string | null;
       can_see_details: boolean;
+      priority: string;
+      category: string | null;
     }>(
       `SELECT b.purpose, b.notes, b.booker_email, b.booker_department, r.code AS room_code,
-              r.capacity AS room_capacity, b.created_at, b.cancel_reason,
+              r.capacity AS room_capacity, b.created_at, b.cancel_reason, b.priority, b.category,
               app.can_see_booking_details(b.booker_profile_id, b.room_id, b.privacy, b.attendee_profile_ids) AS can_see_details
          FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id = $1`,
       [bookingId],
     );
     const e = extra.rows[0]!;
-    const attendees = await sql.query<{ email: string; display_name: string | null; kind: string; response: string }>(
-      'SELECT email, display_name, kind, response FROM booking_attendees WHERE booking_id = $1 ORDER BY email',
+    const attendees = await sql.query<{
+      email: string;
+      display_name: string | null;
+      kind: string;
+      response: string;
+      profile_id: string | null;
+    }>(
+      'SELECT email, display_name, kind, response, profile_id FROM booking_attendees WHERE booking_id = $1 ORDER BY email',
       [bookingId],
     );
     const resources = await sql.query<{ amenity_code: string; name_th: string; quantity: number }>(
@@ -768,11 +778,14 @@ export async function getBookingDetail(ctx: DbContext, bookingId: string): Promi
       createdAt: e.created_at,
       cancelReason: e.cancel_reason,
       canSeeDetails: e.can_see_details,
+      priority: e.priority,
+      category: e.category,
       attendees: attendees.rows.map((a) => ({
         email: a.email,
         displayName: a.display_name,
         kind: a.kind,
         response: a.response,
+        profileId: a.profile_id,
       })),
       resources: resources.rows.map((r) => ({ amenityCode: r.amenity_code, nameTh: r.name_th, quantity: r.quantity })),
       approvals: approvals.rows.map((a) => ({
@@ -824,6 +837,17 @@ export async function updateBooking(
       ([key, value]) => key === 'expectedVersion' || key === 'reminderLeads' || value === undefined,
     );
     if (timeChanged) {
+      /*
+       * ห้องที่ต้องขออนุมัติ: การจองที่อนุมัติแล้วห้ามย้ายวัน/เวลาเอง ไม่อย่างนั้นจะได้เวลาใหม่
+       * ที่ผู้อนุมัติไม่เคยเห็น — ผู้จัดการการจองทั้งหมดยังย้ายได้ (เช่น จัดตารางให้)
+       */
+      if (
+        room.policy.requiresApproval &&
+        before.status !== 'pending' &&
+        !actor.permissions.includes('booking:manage_all')
+      ) {
+        throw new DomainError(t('booking.edit.needsReapproval'), 'invalid_state');
+      }
       await assertBookable(sql, actor, room, startsAt, endsAt, { attendeeCount }, bookingId);
     }
 

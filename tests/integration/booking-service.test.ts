@@ -217,6 +217,51 @@ describe('แก้ไข ยกเลิก และคิวรอ', () => {
     ).rejects.toThrow(ConflictError);
   });
 
+  it('ห้องที่ต้องอนุมัติ: อนุมัติแล้วผู้จองย้ายเวลาเองไม่ได้ แต่แก้หัวข้อได้ และผู้ดูแลย้ายได้', async () => {
+    const employee = actorFor(world, 'employee');
+    const { booking } = await createBooking(ctxFor(world, 'employee'), employee, baseBooking({ roomId: world.rooms.approval }));
+    const approved = await decideApproval(ctxFor(world, 'approver'), actorFor(world, 'approver'), booking.id, 'approved', null);
+
+    await expect(
+      updateBooking(ctxFor(world, 'employee'), employee, booking.id, {
+        startTime: '14:00',
+        endTime: '15:00',
+        expectedVersion: approved.version,
+      }),
+    ).rejects.toThrow('ต้องขออนุมัติ');
+
+    const renamed = await updateBooking(ctxFor(world, 'employee'), employee, booking.id, {
+      title: 'เปลี่ยนชื่อได้',
+      expectedVersion: approved.version,
+    });
+    expect(renamed.title).toBe('เปลี่ยนชื่อได้');
+
+    const moved = await updateBooking(ctxFor(world, 'admin'), actorFor(world, 'admin'), booking.id, {
+      startTime: '14:00',
+      endTime: '15:00',
+      expectedVersion: renamed.version,
+    });
+    expect(moved.status).toBe('confirmed');
+  });
+
+  it('รายละเอียดการจองมีความสำคัญ หมวด และรหัสบัญชีผู้เข้าร่วม (ให้ฟอร์มแก้ไขเติมค่าเดิมได้ครบ)', async () => {
+    const { booking } = await createBooking(
+      ctxFor(world, 'employee'),
+      actorFor(world, 'employee'),
+      baseBooking({
+        priority: 'urgent',
+        category: 'การตลาด',
+        attendees: [{ email: world.users.employee2.email }, { email: 'guest@outside.example' }],
+      }),
+    );
+    const detail = (await getBookingDetail(ctxFor(world, 'employee'), booking.id))!;
+    expect(detail.priority).toBe('urgent');
+    expect(detail.category).toBe('การตลาด');
+    const internal = detail.attendees.find((a) => a.email === world.users.employee2.email.toLowerCase());
+    expect(internal?.profileId).toBe(world.users.employee2.id);
+    expect(detail.attendees.find((a) => a.email === 'guest@outside.example')?.profileId).toBeNull();
+  });
+
   it('ยกเลิกแล้วช่วงเวลาว่างให้คนอื่นจองได้', async () => {
     const { booking } = await createBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), baseBooking());
     await cancelBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), booking.id, 'เปลี่ยนแผน');

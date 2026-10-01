@@ -89,6 +89,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       <BookingActions
         bookingId={detail.id}
         seriesId={detail.seriesId}
+        canEdit={editable && (isOwner || isManager)}
         canCancel={editable && (isOwner || isManager)}
         canCheckIn={
           detail.status === 'confirmed' &&

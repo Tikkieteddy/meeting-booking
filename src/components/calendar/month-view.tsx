@@ -5,7 +5,7 @@ import { OCCUPANCY_META } from '@/lib/domain/booking-rules';
 import { cx } from '@/components/ui/primitives';
 import { t } from '@/lib/i18n';
 import { formatTimeRange, thaiWeekday, toDateISO } from '@/lib/util/time';
-import { TZ } from './shared';
+import { firstName, TZ } from './shared';
 
 /**
  * มุมมองรายเดือน (บรีฟข้อ 3.3)
@@ -169,10 +169,4 @@ export function MonthView({
       </div>
     </div>
   );
-}
-
-/** ชื่อต้นจาก "ชื่อ นามสกุล" — ถ้าไม่มีช่องว่างคืนทั้งชื่อ */
-function firstName(fullName: string | null): string | null {
-  if (!fullName) return null;
-  return fullName.trim().split(/\s+/)[0] ?? fullName;
 }

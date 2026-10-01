@@ -105,3 +105,9 @@ export const PRIORITY_PILL: Record<string, string> = {
   vip: 'bg-purple-700 text-white',
   internal: 'bg-stone-200 text-stone-900',
 };
+
+/** ชื่อต้นจาก "ชื่อ นามสกุล" — ใช้ในมุมมองที่ช่องแคบ (รายสัปดาห์/รายเดือน) ถ้าไม่มีช่องว่างคืนทั้งชื่อ */
+export function firstName(fullName: string | null): string | null {
+  if (!fullName) return null;
+  return fullName.trim().split(/\s+/)[0] ?? fullName;
+}

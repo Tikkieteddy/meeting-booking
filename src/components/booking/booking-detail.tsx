@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/toast';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
 import { formatThaiDate, formatTimeRange } from '@/lib/util/time';
+import { EditBookingDialog } from './edit-booking-dialog';
 
 type Detail = {
   id: string;
@@ -52,6 +53,13 @@ export function BookingDetailDrawer({
   const [cancelReason, setCancelReason] = useState('');
   const [cancelScope, setCancelScope] = useState<'this' | 'series'>('this');
   const [busy, setBusy] = useState(false);
+  // เปิดฟอร์มแก้ไขแทนที่หน้าต่างรายละเอียด (ไม่ซ้อนสองชั้น ปิดด้วย Esc ได้ทีละอัน)
+  const [editOpen, setEditOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!open) setEditOpen(false);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !bookingId) return;
@@ -71,7 +79,7 @@ export function BookingDetailDrawer({
     return () => {
       active = false;
     };
-  }, [open, bookingId]);
+  }, [open, bookingId, reloadKey]);
 
   const checkIn = async () => {
     if (!bookingId) return;
@@ -110,7 +118,7 @@ export function BookingDetailDrawer({
   return (
     <>
       <Overlay
-        open={open}
+        open={open && !editOpen}
         onClose={onClose}
         title={t('booking.detail')}
         footer={
@@ -123,6 +131,11 @@ export function BookingDetailDrawer({
               >
                 {t('booking.downloadIcs')}
               </a>
+              {detail.permissions.canEdit && (
+                <Button variant="secondary" onClick={() => setEditOpen(true)} disabled={busy}>
+                  {t('booking.edit.button')}
+                </Button>
+              )}
               {detail.permissions.canCheckIn && detail.status === 'confirmed' && (
                 <Button variant="secondary" onClick={checkIn} loading={busy}>
                   {t('booking.checkIn')}
@@ -219,6 +232,18 @@ export function BookingDetailDrawer({
           </div>
         )}
       </Overlay>
+
+      {bookingId && (
+        <EditBookingDialog
+          bookingId={bookingId}
+          open={open && editOpen}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => {
+            setReloadKey((k) => k + 1);
+            onChanged();
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmCancel}

@@ -221,10 +221,16 @@ export function AppShell({
         แผงเนื้อหาแบบกระจกฝ้าลอยบนภาพพื้นหลัง (จอ md ขึ้นไป)
         บนมือถือเป็นพื้นทึบเต็มจอ อ่านง่ายกว่าและไม่เปลืองพื้นที่
       */}
+      {/*
+        ความเบลอ (backdrop-filter) ต้องอยู่ที่ชั้นพื้นหลังแยก ห้ามใส่บน <main> ตรง ๆ
+        เพราะ backdrop-filter ทำให้ทุกอย่างที่เป็น position: fixed ข้างใน (หน้าต่างฟอร์มจอง,
+        รายละเอียดการจอง, บทแนะนำ) ยึดกรอบของ main แทนจอ — ฟอร์มจึงล้นจอและเลื่อนลงไม่ได้
+      */}
       <main
         id="main"
-        className="flex flex-1 flex-col overflow-hidden bg-[#f7f5f3] md:mx-4 md:my-4 md:rounded-[1.25rem] md:border md:border-white/60 md:bg-white/[0.48] md:shadow-[0_24px_48px_-12px_rgb(0_0_0/0.35)] md:backdrop-blur-2xl lg:mx-6"
+        className="relative isolate flex flex-1 flex-col overflow-hidden bg-[#f7f5f3] md:mx-4 md:my-4 md:rounded-[1.25rem] md:border md:border-white/60 md:bg-transparent md:shadow-[0_24px_48px_-12px_rgb(0_0_0/0.35)] lg:mx-6"
       >
+        <div aria-hidden="true" className="absolute inset-0 -z-10 hidden bg-white/[0.48] backdrop-blur-2xl md:block" />
         {children}
       </main>
 

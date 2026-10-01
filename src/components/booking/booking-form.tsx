@@ -21,6 +21,30 @@ export type BookingFormPreset = {
   startTime: string | null;
 };
 
+/** ค่าเดิมของการจองที่จะแก้ไข — เปิดฟอร์มนี้ในโหมดแก้ไข (ห้องและการเกิดซ้ำเปลี่ยนไม่ได้) */
+export type EditingBooking = {
+  id: string;
+  version: number;
+  roomId: string;
+  dateISO: string;
+  startTime: string;
+  endTime: string;
+  title: string;
+  purpose: string | null;
+  notes: string | null;
+  attendeeCount: number;
+  attendees: AttendeeChip[];
+  privacy: 'public' | 'busy_only' | 'private';
+  priority: 'normal' | 'urgent' | 'vip' | 'internal';
+  category: string | null;
+  resources: string[];
+  /** เวลาเตือนของผู้จอง — null = ใช้ค่าตั้งส่วนตัว */
+  reminderLeads: number[] | null;
+  /** เฉพาะผู้จองเองแก้เวลาเตือนได้ (เวลาเตือนเป็นของผู้จอง ผู้ดูแลที่แก้แทนไม่ควรไปเปลี่ยน) */
+  canEditReminders: boolean;
+  isSeries: boolean;
+};
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -28,42 +52,53 @@ type Props = {
   amenities: Amenity[];
   preset: BookingFormPreset;
   canOverride: boolean;
-  onCreated: (result: { requiresApproval: boolean; skipped?: { dateISO: string; reason: string }[] }) => void;
+  onCreated?: (result: { requiresApproval: boolean; skipped?: { dateISO: string; reason: string }[] }) => void;
   onConflict?: (roomId: string, startTime: string) => void;
+  /** มีค่า = โหมดแก้ไขการจองเดิม */
+  editing?: EditingBooking;
+  onSaved?: () => void;
 };
 
-/** ฟอร์มจองห้องประชุม — เปิดเป็น Drawer/Modal โดยไม่พาออกจากปฏิทิน (บรีฟข้อ 5) */
-export function BookingForm({ open, onClose, rooms, amenities, preset, canOverride, onCreated, onConflict }: Props) {
+const sameList = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && [...a].sort().join('\n') === [...b].sort().join('\n');
+
+/** ฟอร์มจองห้องประชุม — เปิดเป็น Drawer/Modal โดยไม่พาออกจากปฏิทิน (บรีฟข้อ 5) ใช้ทั้งจองใหม่และแก้ไข */
+export function BookingForm({ open, onClose, rooms, amenities, preset, canOverride, onCreated, onConflict, editing, onSaved }: Props) {
   const toast = useToast();
-  const [roomId, setRoomId] = useState(preset.roomId ?? rooms[0]?.id ?? '');
-  const [dateISO, setDateISO] = useState(preset.dateISO);
-  const [startTime, setStartTime] = useState(preset.startTime ?? '09:00');
-  const [title, setTitle] = useState('');
-  const [purpose, setPurpose] = useState('');
-  const [notes, setNotes] = useState('');
-  const [attendeeCount, setAttendeeCount] = useState(1);
-  const [attendees, setAttendees] = useState<AttendeeChip[]>([]);
-  const [privacy, setPrivacy] = useState<'public' | 'busy_only' | 'private'>('public');
-  const [priority, setPriority] = useState<'normal' | 'urgent' | 'vip' | 'internal'>('normal');
-  const [category, setCategory] = useState('');
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [roomId, setRoomId] = useState(editing?.roomId ?? preset.roomId ?? rooms[0]?.id ?? '');
+  const [dateISO, setDateISO] = useState(editing?.dateISO ?? preset.dateISO);
+  const [startTime, setStartTime] = useState(editing?.startTime ?? preset.startTime ?? '09:00');
+  const [title, setTitle] = useState(editing?.title ?? '');
+  const [purpose, setPurpose] = useState(editing?.purpose ?? '');
+  const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [attendeeCount, setAttendeeCount] = useState(editing?.attendeeCount ?? 1);
+  const [attendees, setAttendees] = useState<AttendeeChip[]>(editing?.attendees ?? []);
+  const [privacy, setPrivacy] = useState<'public' | 'busy_only' | 'private'>(editing?.privacy ?? 'public');
+  const [priority, setPriority] = useState<'normal' | 'urgent' | 'vip' | 'internal'>(editing?.priority ?? 'normal');
+  const [category, setCategory] = useState(editing?.category ?? '');
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(editing?.resources ?? []);
   const [recurrence, setRecurrence] = useState<RecurrenceRule | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
   // เวลาเตือนของการจองนี้ — เริ่มจากค่าตั้งส่วนตัว null = ยังโหลดไม่เสร็จ (ส่งไปไม่ได้ ระบบจะใช้ค่าตั้งส่วนตัวเอง)
-  const [reminderLeads, setReminderLeads] = useState<number[] | null>(null);
+  const [reminderLeads, setReminderLeads] = useState<number[] | null>(editing?.reminderLeads ?? null);
+  // ค่าเตือนตอนเปิดฟอร์มแก้ไข — ใช้เทียบว่าผู้ใช้เปลี่ยนจริงหรือไม่
+  const [initialLeads, setInitialLeads] = useState<number[] | null>(editing?.reminderLeads ?? null);
+  const showReminders = !editing || editing.canEditReminders;
   // เวลาสิ้นสุดที่ผู้ใช้เลือกเอง — null = ใช้ค่าเริ่มต้น (เริ่ม + ระยะขั้นต่ำของห้อง)
-  const [chosenEndTime, setChosenEndTime] = useState<string | null>(null);
+  const [chosenEndTime, setChosenEndTime] = useState<string | null>(editing?.endTime ?? null);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [idempotencyKey] = useState(() => `bk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 
   useEffect(() => {
-    if (!open || reminderLeads !== null) return;
+    if (!open || reminderLeads !== null || !showReminders) return;
     let cancelled = false;
     apiFetch<{ preferences: { reminderLeads: number[] } }>('/api/notifications/preferences')
       .then((res) => {
-        if (!cancelled) setReminderLeads(res.preferences.reminderLeads);
+        if (cancelled) return;
+        setReminderLeads(res.preferences.reminderLeads);
+        setInitialLeads(res.preferences.reminderLeads);
       })
       .catch(() => {
         // โหลดไม่ได้ก็ไม่เป็นไร — ไม่ส่งค่าไป ระบบใช้ค่าตั้งส่วนตัวแทน
@@ -71,10 +106,15 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
     return () => {
       cancelled = true;
     };
-  }, [open, reminderLeads]);
+  }, [open, reminderLeads, showReminders]);
 
   const room = rooms.find((r) => r.id === roomId) ?? rooms[0];
-  const slots = useMemo(() => (room ? timeSlots(room.policy) : []), [room]);
+  const slots = useMemo(() => {
+    const base = room ? timeSlots(room.policy) : [];
+    // การจองเดิมอาจเริ่มนอกช่องปกติ (เช่น ผู้ดูแลจองแทน) — ใส่เวลาเดิมไว้ให้เลือก ไม่ให้เวลาเปลี่ยนเองเงียบ ๆ
+    if (editing && !base.includes(editing.startTime)) return [...base, editing.startTime].sort();
+    return base;
+  }, [room, editing]);
 
   /*
    * ตัวเลือก "เวลาสิ้นสุด": ทุกช่วงหลังเวลาเริ่ม ที่ยาวอย่างน้อยเท่าขั้นต่ำของห้อง
@@ -88,10 +128,40 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
     for (let m = start + room.policy.minDurationMinutes; m <= close && m - start <= room.policy.maxDurationMinutes; m += room.policy.slotStepMinutes) {
       out.push(minutesToHhmm(m));
     }
-    return out;
-  }, [room, startTime]);
+    // เช่นเดียวกับเวลาเริ่ม: คงเวลาสิ้นสุดเดิมไว้ถ้ายังไม่ได้เปลี่ยนเวลาเริ่ม แม้จะยาวเกินกฎปัจจุบันของห้อง
+    if (editing && startTime === editing.startTime && !out.includes(editing.endTime)) out.push(editing.endTime);
+    return out.sort();
+  }, [room, startTime, editing]);
   const endTime = chosenEndTime && endOptions.includes(chosenEndTime) ? chosenEndTime : (endOptions[0] ?? startTime);
   const effectiveDuration = Math.max(0, hhmmToMinutes(endTime) - hhmmToMinutes(startTime));
+
+  /*
+   * โหมดแก้ไข: ส่งเฉพาะช่องที่เปลี่ยนจริง — ระบบตั้งเตือนใหม่/แจ้งผู้เข้าร่วมตามสิ่งที่ส่งมา
+   * ถ้าส่งรายชื่อผู้เข้าร่วมเดิมซ้ำ คำตอบรับ (ไป/ไม่ไป) ของทุกคนจะถูกล้าง
+   */
+  const buildUpdate = (e: EditingBooking) => {
+    const patch: Record<string, unknown> = {};
+    if (title.trim() !== e.title) patch.title = title;
+    if ((purpose || null) !== e.purpose) patch.purpose = purpose || null;
+    if ((notes || null) !== e.notes) patch.notes = notes || null;
+    if (dateISO !== e.dateISO || startTime !== e.startTime || endTime !== e.endTime) {
+      Object.assign(patch, { dateISO, startTime, endTime });
+    }
+    if (attendeeCount !== e.attendeeCount) patch.attendeeCount = attendeeCount;
+    if (privacy !== e.privacy) patch.privacy = privacy;
+    if (priority !== e.priority) patch.priority = priority;
+    if ((category.trim() || null) !== e.category) patch.category = category.trim() || null;
+    if (!sameList(attendees.map((a) => a.email.toLowerCase()), e.attendees.map((a) => a.email.toLowerCase()))) {
+      patch.attendees = attendees.map((a) => ({ email: a.email, displayName: a.displayName, profileId: a.profileId }));
+    }
+    if (!sameList(selectedAmenities, e.resources)) {
+      patch.resources = selectedAmenities.map((amenityCode) => ({ amenityCode }));
+    }
+    if (e.canEditReminders && reminderLeads !== null && (initialLeads === null || reminderLeads.join(',') !== initialLeads.join(','))) {
+      patch.reminderLeads = reminderLeads;
+    }
+    return patch;
+  };
 
   const submit = async () => {
     if (!room) return;
@@ -99,6 +169,22 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
     setFormError(null);
     setFieldErrors({});
     try {
+      if (editing) {
+        const patch = buildUpdate(editing);
+        if (Object.keys(patch).length === 0) {
+          toast.show(t('booking.edit.noChange'), 'info');
+          onClose();
+          return;
+        }
+        await apiFetch(`/api/bookings/${editing.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ expectedVersion: editing.version, ...patch }),
+        });
+        toast.show(t('booking.edit.saved'), 'success');
+        onSaved?.();
+        onClose();
+        return;
+      }
       const payload = {
         roomId: room.id,
         title,
@@ -122,13 +208,13 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         '/api/bookings',
         { method: 'POST', body: JSON.stringify(payload) },
       );
-      onCreated(result);
+      onCreated?.(result);
       onClose();
     } catch (error) {
       if (error instanceof ApiClientError) {
         setFieldErrors(error.fieldErrors());
         setFormError(error.message);
-        if (error.code === 'conflict') {
+        if (error.code === 'conflict' && !editing) {
           toast.show(error.message, 'error');
           onConflict?.(room.id, startTime);
         }
@@ -146,11 +232,11 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
     <Overlay
       open={open}
       onClose={onClose}
-      title={t('booking.new')}
+      title={editing ? t('booking.edit') : t('booking.new')}
       description={`${room.name} · ${formatThaiDate(dateISO)}`}
       placement="drawer"
       size="sm"
-      icon="＋"
+      icon={editing ? '✎' : '＋'}
       footer={
         <div className="flex items-center justify-between gap-3">
           <p className="flex flex-wrap items-center gap-2 text-xs text-ink-500">
@@ -165,7 +251,13 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
               {t('common.cancel')}
             </Button>
             <Button onClick={submit} loading={loading}>
-              {loading ? t('booking.submitting') : t('booking.submit')}
+              {editing
+                ? loading
+                  ? t('booking.edit.saving')
+                  : t('booking.edit.save')
+                : loading
+                  ? t('booking.submitting')
+                  : t('booking.submit')}
             </Button>
           </div>
         </div>
@@ -185,6 +277,10 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
           </div>
         )}
 
+        {editing?.isSeries && (
+          <p className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">{t('booking.edit.seriesNote')}</p>
+        )}
+
         <Field label={t('booking.title')} htmlFor="bk-title" required error={fieldErrors.title}>
           <Input
             id="bk-title"
@@ -198,8 +294,14 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t('booking.room')} htmlFor="bk-room" required error={fieldErrors.roomId}>
-            <Select id="bk-room" value={roomId} onChange={(event) => setRoomId(event.target.value)}>
+          <Field
+            label={t('booking.room')}
+            htmlFor="bk-room"
+            required
+            error={fieldErrors.roomId}
+            hint={editing ? t('booking.edit.roomFixed') : undefined}
+          >
+            <Select id="bk-room" value={roomId} onChange={(event) => setRoomId(event.target.value)} disabled={Boolean(editing)}>
               {rooms.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name} · {r.capacity} {t('common.people')}
@@ -315,7 +417,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
           <AttendeePicker id="bk-attendees" value={attendees} onChange={setAttendees} error={fieldErrors.attendees} />
         </Field>
 
-        {reminderLeads !== null && <ReminderEditor id="bk-reminders" value={reminderLeads} onChange={setReminderLeads} />}
+        {showReminders && reminderLeads !== null && <ReminderEditor id="bk-reminders" value={reminderLeads} onChange={setReminderLeads} />}
         {fieldErrors.reminderLeads && <p className="text-xs text-red-700">{fieldErrors.reminderLeads}</p>}
 
         <fieldset className="flex flex-col gap-2">
@@ -366,9 +468,9 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
           <Textarea id="bk-notes" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={2000} />
         </Field>
 
-        <RecurrencePicker dateISO={dateISO} onChange={setRecurrence} />
+        {!editing && <RecurrencePicker dateISO={dateISO} onChange={setRecurrence} />}
 
-        {canOverride && (
+        {canOverride && !editing && (
           <Field
             label={t('booking.overrideCapacity')}
             htmlFor="bk-override"
