@@ -3,9 +3,9 @@ import { hhmmToMinutes, partsInZone, toDateISO } from '@/lib/util/time';
 
 /**
  * ความสูงของหนึ่งชั่วโมงในตารางเวลา (พิกเซล)
- * เพิ่มจาก 56 เป็น 84 ตามแบบใหม่ — ตัวอักษรทั้งเว็บขยาย 150% การ์ด 30 นาทีเดิมเตี้ยจนอ่านไม่ออก
+ * 64px: การ์ด 30 นาทีสูง 32px พอสำหรับเวลา + หัวข้อ บนตัวอักษร 17–19px (ปรับ 1 ต.ค. 2569)
  */
-export const HOUR_PX = 84;
+export const HOUR_PX = 64;
 export const TZ = 'Asia/Bangkok';
 
 export type TimeWindow = { openMinutes: number; closeMinutes: number; totalMinutes: number };

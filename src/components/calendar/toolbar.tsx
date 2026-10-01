@@ -211,8 +211,16 @@ export function CalendarToolbar({
             🔍
           </span>
         </div>
-        <Button variant="secondary" size="md" onClick={onOpenSearch} className="shrink-0">
-          {t('search.advanced')}
+        {/*
+          มือถือแสดงแค่ "ตัวกรอง" ให้ช่องค้นหากว้างพอพิมพ์
+          ชื่อปุ่มเต็ม "ตัวกรองเพิ่มเติม" ครอบคลุมข้อความที่ตาเห็นทุกขนาดจอ (WCAG 2.5.3 Label in Name)
+          — ใช้ sr-only ไม่ได้ เพราะเบราว์เซอร์แทรกช่องว่างเป็น "ตัวกรอง เพิ่มเติม"
+        */}
+        <Button variant="secondary" size="md" onClick={onOpenSearch} className="shrink-0" aria-label={t('search.advanced')}>
+          <span>
+            {t('search.filterShort')}
+            <span className="hidden sm:inline">{t('search.filterMore')}</span>
+          </span>
         </Button>
 
         {loading && (

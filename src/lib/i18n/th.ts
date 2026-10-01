@@ -96,6 +96,8 @@ export const th = {
 
   'search.placeholder': 'ค้นหาห้อง ชื่อผู้จอง หรือช่วงเวลา',
   'search.advanced': 'ตัวกรองเพิ่มเติม',
+  'search.filterShort': 'ตัวกรอง',
+  'search.filterMore': 'เพิ่มเติม',
   'search.tabRooms': 'ห้องประชุม',
   'search.tabBookings': 'ผู้จอง',
   'search.tabSlots': 'ช่วงเวลาว่าง',
