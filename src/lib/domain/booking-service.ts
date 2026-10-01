@@ -3,7 +3,7 @@ import { buildMapLink, effectiveLocation } from './map-link';
 import { asService, lockRoom, withTx, type DbContext, type Sql } from '@/lib/db/pool';
 import { writeAudit } from '@/lib/audit';
 import { t } from '@/lib/i18n';
-import { enqueueNotification, pushInApp, cancelPendingJobs } from '@/lib/notify/queue';
+import { buildDedupeKey, enqueueNotification, pushInApp, cancelPendingJobs, type EnqueueInput } from '@/lib/notify/queue';
 import { formatThaiDate, formatTimeRange, localDateTimeToUtc, toDateISO, DEFAULT_TZ } from '@/lib/util/time';
 import { logger } from '@/lib/util/logger';
 import { blockedHolidayDates, findClosureConflict, getRoomWith, type Room } from './rooms';
@@ -230,7 +230,14 @@ async function notifyBookingEvent(
     privacy: string;
   },
   event: 'booking.confirmed' | 'booking.pending_approval' | 'booking.updated' | 'booking.cancelled' | 'booking.approved' | 'booking.rejected',
-  extra: { attendeeProfileIds?: string[]; attendeeEmails?: string[]; approverProfileIds?: string[]; reason?: string | null } = {},
+  extra: {
+    attendeeProfileIds?: string[];
+    attendeeEmails?: string[];
+    approverProfileIds?: string[];
+    reason?: string | null;
+    /** รุ่นของการจองหลังแก้ — ทำให้การแก้แต่ละครั้งเป็นข้อความใหม่ ไม่ถูกตัดทิ้งเป็นงานซ้ำ */
+    revision?: number;
+  } = {},
 ) {
   const when = `${formatThaiDate(toDateISO(booking.startsAt, timezoneOf()))} ${formatTimeRange(
     booking.startsAt,
@@ -258,8 +265,13 @@ async function notifyBookingEvent(
     attachIcs: event !== 'booking.cancelled' && event !== 'booking.rejected',
   };
 
+  // คิวกันส่งซ้ำด้วย "เหตุการณ์ + ผู้รับ" — แต่ "มีการแก้ไข" เกิดได้หลายครั้งต่อการจอง
+  // จึงต่อท้ายรุ่นของการจอง (เดิมการแก้ครั้งที่สองขึ้นไปไม่ถูกส่งเลย)
+  const keyed = (input: EnqueueInput): EnqueueInput =>
+    extra.revision ? { ...input, dedupeKey: `${buildDedupeKey(input)}|v${extra.revision}` } : input;
+
   // ผู้จองเสมอ
-  await enqueueNotification(sql, {
+  await enqueueNotification(sql, keyed({
     eventType: event,
     channel: 'email',
     bookingId: booking.id,
@@ -267,15 +279,15 @@ async function notifyBookingEvent(
     recipientAddress: booking.bookerEmail,
     payload,
     correlationId: actor.correlationId ?? null,
-  });
-  await enqueueNotification(sql, {
+  }));
+  await enqueueNotification(sql, keyed({
     eventType: event,
     channel: 'line',
     bookingId: booking.id,
     recipientProfileId: booking.bookerProfileId,
     payload,
     correlationId: actor.correlationId ?? null,
-  });
+  }));
   await pushInApp(sql, {
     profileId: booking.bookerProfileId,
     eventType: event,
@@ -292,14 +304,14 @@ async function notifyBookingEvent(
       : payload;
   for (const email of extra.attendeeEmails ?? []) {
     if (email.toLowerCase() === booking.bookerEmail.toLowerCase()) continue;
-    await enqueueNotification(sql, {
+    await enqueueNotification(sql, keyed({
       eventType: event,
       channel: 'email',
       bookingId: booking.id,
       recipientAddress: email,
       payload: attendeePayload,
       correlationId: actor.correlationId ?? null,
-    });
+    }));
   }
   for (const profileId of extra.attendeeProfileIds ?? []) {
     if (profileId === booking.bookerProfileId) continue;
@@ -313,26 +325,26 @@ async function notifyBookingEvent(
     });
     // คนในองค์กรที่ผูก LINE ไว้ ได้รับทาง LINE ด้วย — worker ตรวจเองว่าผูกแล้วและเปิดรับหรือไม่
     // ถ้ายังไม่ผูกจะข้ามเงียบ ๆ (ไม่ใช่ error) อีเมลยังส่งตามปกติจากลูปด้านบน
-    await enqueueNotification(sql, {
+    await enqueueNotification(sql, keyed({
       eventType: event,
       channel: 'line',
       bookingId: booking.id,
       recipientProfileId: profileId,
       payload: attendeePayload,
       correlationId: actor.correlationId ?? null,
-    });
+    }));
   }
 
   // ผู้อนุมัติ
   for (const approverId of extra.approverProfileIds ?? []) {
-    await enqueueNotification(sql, {
+    await enqueueNotification(sql, keyed({
       eventType: event,
       channel: 'email',
       bookingId: booking.id,
       recipientProfileId: approverId,
       payload: { ...payload, subject: `[ต้องอนุมัติ] ${booking.title}`, link: '/approvals' },
       correlationId: actor.correlationId ?? null,
-    });
+    }));
     await pushInApp(sql, {
       profileId: approverId,
       eventType: event,
@@ -805,8 +817,39 @@ export async function getBookingDetail(ctx: DbContext, bookingId: string): Promi
 // แก้ไข / ยกเลิก
 // ============================================================
 export type UpdateBookingInput = Partial<
-  Pick<CreateBookingInput, 'title' | 'purpose' | 'notes' | 'dateISO' | 'startTime' | 'endTime' | 'attendeeCount' | 'privacy' | 'attendees' | 'resources' | 'reminderLeads' | 'priority' | 'category'>
-> & { expectedVersion: number };
+  Pick<
+    CreateBookingInput,
+    | 'roomId'
+    | 'title'
+    | 'purpose'
+    | 'notes'
+    | 'dateISO'
+    | 'startTime'
+    | 'endTime'
+    | 'attendeeCount'
+    | 'privacy'
+    | 'attendees'
+    | 'resources'
+    | 'reminderLeads'
+    | 'priority'
+    | 'category'
+  >
+> & {
+  expectedVersion: number;
+  /** series = แก้ทุกครั้งที่ยังไม่ถึงในชุดเกิดซ้ำเดียวกัน (วันที่ของแต่ละครั้งคงเดิม) */
+  scope?: 'this' | 'series';
+};
+
+/**
+ * แก้ไขหรือยกเลิกได้เฉพาะการจองของตัวเอง (ผู้ใช้ขอ 1 ต.ค. 2569)
+ * RLS ยอมให้ผู้อนุมัติของห้องแก้แถวได้ด้วย (ใช้ตอนอนุมัติ) จึงต้องกันซ้ำที่ชั้นนี้
+ * ผู้ที่มีสิทธิ์จัดการการจองทั้งหมด (ผู้ดูแลระบบ) ยังทำแทนได้ สำหรับกรณีฉุกเฉิน
+ */
+function assertOwnerOrManager(actor: Actor, booking: BookingRecord) {
+  if (booking.bookerProfileId !== actor.profileId && !actor.permissions.includes('booking:manage_all')) {
+    throw new ForbiddenError(t('booking.notOwner'));
+  }
+}
 
 export async function updateBooking(
   ctx: DbContext,
@@ -818,108 +861,163 @@ export async function updateBooking(
   return withTx(ctx, async (sql) => {
     const before = await getBookingRecord(sql, bookingId);
     if (!before) throw new NotFoundError(t('error.notFound'));
+    assertOwnerOrManager(actor, before);
     if (before.version !== input.expectedVersion) throw new ConflictError(t('error.versionConflict'));
     if (before.status === 'cancelled' || before.status === 'rejected') {
       throw new DomainError('การจองนี้ถูกยกเลิกหรือปฏิเสธไปแล้ว แก้ไขไม่ได้', 'invalid_state');
     }
 
-    const room = await loadRoomOrThrow(sql, before.roomId);
-    const dateISO = input.dateISO ?? toDateISO(before.startsAt, tz);
-    const startsAt = input.startTime ? localDateTimeToUtc(dateISO, input.startTime, tz) : before.startsAt;
-    const endsAt = input.endTime ? localDateTimeToUtc(dateISO, input.endTime, tz) : before.endsAt;
-    const attendeeCount = input.attendeeCount ?? before.attendeeCount;
+    if (input.scope !== 'series' || !before.seriesId) {
+      return applyBookingUpdate(sql, actor, before, input, { notify: true });
+    }
 
-    const timeChanged = startsAt.getTime() !== before.startsAt.getTime() || endsAt.getTime() !== before.endsAt.getTime();
-    const remindersChanged = input.reminderLeads !== undefined;
-    const reminderLeads = remindersChanged ? (input.reminderLeads ?? null) : before.reminderLeads;
-    // แก้เฉพาะการแจ้งเตือนของตัวเอง ไม่ต้องแจ้ง "มีการแก้ไขการจอง" ไปหาทุกคน
-    const onlyReminders = Object.entries(input).every(
-      ([key, value]) => key === 'expectedVersion' || key === 'reminderLeads' || value === undefined,
+    // ทั้งชุด: ย้ายวันทำไม่ได้ (แต่ละครั้งมีวันของตัวเอง) — ย้ายเวลา/ห้อง/แก้รายละเอียดได้
+    if (input.dateISO && input.dateISO !== toDateISO(before.startsAt, tz)) {
+      throw new DomainError(t('booking.edit.seriesNoDateChange'), 'invalid_state');
+    }
+    const record = await applyBookingUpdate(sql, actor, before, input, { notify: true });
+    const others = await sql.query<{ id: string }>(
+      `SELECT id FROM bookings
+        WHERE series_id = $1 AND id <> $2 AND starts_at >= now() AND status = ANY($3)
+        ORDER BY starts_at`,
+      [before.seriesId, bookingId, ACTIVE_STATUSES],
     );
-    if (timeChanged) {
-      /*
-       * ห้องที่ต้องขออนุมัติ: การจองที่อนุมัติแล้วห้ามย้ายวัน/เวลาเอง ไม่อย่างนั้นจะได้เวลาใหม่
-       * ที่ผู้อนุมัติไม่เคยเห็น — ผู้จัดการการจองทั้งหมดยังย้ายได้ (เช่น จัดตารางให้)
-       */
-      if (
-        room.policy.requiresApproval &&
-        before.status !== 'pending' &&
-        !actor.permissions.includes('booking:manage_all')
-      ) {
-        throw new DomainError(t('booking.edit.needsReapproval'), 'invalid_state');
+    for (const { id } of others.rows) {
+      const occurrence = (await getBookingRecord(sql, id))!;
+      try {
+        // แจ้งผู้เข้าร่วมครั้งเดียวพอ (จากครั้งที่กดแก้) ไม่ส่งซ้ำทุกครั้งในชุด
+        await applyBookingUpdate(
+          sql,
+          actor,
+          occurrence,
+          { ...input, dateISO: undefined, expectedVersion: occurrence.version },
+          { notify: false },
+        );
+      } catch (error) {
+        if (error instanceof DomainError) {
+          // บอกว่าครั้งไหนในชุดที่ติด — ทั้งชุดถูกย้อนกลับ ไม่มีครั้งไหนถูกแก้ครึ่ง ๆ
+          error.message = `${formatThaiDate(toDateISO(occurrence.startsAt, tz))}: ${error.message}`;
+        }
+        throw error;
       }
-      await assertBookable(sql, actor, room, startsAt, endsAt, { attendeeCount }, bookingId);
     }
-
-    try {
-      const res = await sql.query(
-        `UPDATE bookings
-            SET title = coalesce($2, title),
-                -- ไม่ส่งฟิลด์มา = ไม่แก้ (เดิมตั้งเป็น NULL ทำให้การแก้เฉพาะบางฟิลด์ลบวัตถุประสงค์/หมายเหตุทิ้ง)
-                purpose = CASE WHEN $11 THEN $3 ELSE purpose END,
-                notes = CASE WHEN $12 THEN $4 ELSE notes END,
-                starts_at = $5, ends_at = $6, attendee_count = $7,
-                privacy = coalesce($8, privacy),
-                reminder_leads = CASE WHEN $13 THEN $14::int[] ELSE reminder_leads END,
-                priority = coalesce($15, priority),
-                category = CASE WHEN $16 THEN $17 ELSE category END,
-                version = version + 1, updated_by = $9
-          WHERE id = $1 AND version = $10`,
-        [
-          bookingId,
-          input.title?.trim() ?? null,
-          input.purpose ?? null,
-          input.notes ?? null,
-          startsAt,
-          endsAt,
-          attendeeCount,
-          input.privacy ?? null,
-          actor.profileId,
-          input.expectedVersion,
-          input.purpose !== undefined,
-          input.notes !== undefined,
-          remindersChanged,
-          input.reminderLeads ?? null,
-          input.priority ?? null,
-          input.category !== undefined,
-          input.category?.trim() || null,
-        ],
-      );
-      if (res.rowCount === 0) throw new ConflictError(t('error.versionConflict'));
-    } catch (error) {
-      if (pgErrorCode(error) === PG_ERROR.exclusionViolation) {
-        const range = blockedRange(room.policy, startsAt, endsAt);
-        throw conflictError(await findConflict(sql, room.id, range.start, range.end, bookingId));
-      }
-      throw error;
+    if (input.roomId && input.roomId !== before.roomId) {
+      await sql.query('UPDATE booking_series SET room_id = $2 WHERE id = $1', [before.seriesId, input.roomId]);
     }
+    return record;
+  });
+}
 
-    let attendeeProfileIds: string[] | undefined;
-    if (input.attendees) attendeeProfileIds = await syncAttendees(sql, bookingId, input.attendees);
-    if (input.resources) await syncResources(sql, bookingId, input.resources);
+async function applyBookingUpdate(
+  sql: Sql,
+  actor: Actor,
+  before: BookingRecord,
+  input: UpdateBookingInput,
+  opts: { notify: boolean },
+): Promise<BookingRecord> {
+  const tz = timezoneOf();
+  const bookingId = before.id;
+  const room = await loadRoomOrThrow(sql, input.roomId ?? before.roomId);
+  const roomChanged = room.id !== before.roomId;
+  const dateISO = input.dateISO ?? toDateISO(before.startsAt, tz);
+  const startsAt = input.startTime ? localDateTimeToUtc(dateISO, input.startTime, tz) : before.startsAt;
+  const endsAt = input.endTime ? localDateTimeToUtc(dateISO, input.endTime, tz) : before.endsAt;
+  const attendeeCount = input.attendeeCount ?? before.attendeeCount;
 
-    if ((timeChanged || remindersChanged || input.attendees || input.title) && before.status === 'confirmed') {
-      // เวลา/การแจ้งเตือน/ผู้เข้าร่วม/หัวข้อเปลี่ยน -> ยกเลิก reminder เดิมแล้วตั้งใหม่ทั้งหมด
-      // (การจองที่รออนุมัติยังไม่ตั้งเตือน จะตั้งตอนอนุมัติ; เช็กอินแล้วคือเริ่มประชุมแล้ว)
-      await cancelPendingJobs(sql, bookingId, ['booking.reminder']);
-      await scheduleRemindersForAll(
-        sql,
+  const timeChanged = startsAt.getTime() !== before.startsAt.getTime() || endsAt.getTime() !== before.endsAt.getTime();
+  const remindersChanged = input.reminderLeads !== undefined;
+  const reminderLeads = remindersChanged ? (input.reminderLeads ?? null) : before.reminderLeads;
+  // แก้เฉพาะการแจ้งเตือนของตัวเอง ไม่ต้องแจ้ง "มีการแก้ไขการจอง" ไปหาทุกคน
+  const onlyReminders = Object.entries(input).every(
+    ([key, value]) => key === 'expectedVersion' || key === 'reminderLeads' || key === 'scope' || value === undefined,
+  );
+  // ย้ายห้อง/ย้ายเวลา/เปลี่ยนจำนวนคน ต้องตรวจกฎของห้อง (ความจุ เวลาเปิด-ปิด วันหยุด) และเวลาว่างใหม่
+  // ผู้อนุมัติ: ตอนนี้องค์กรยังไม่ใช้ จึงไม่บังคับให้ขออนุมัติใหม่เมื่อย้าย (ADR-018)
+  if (timeChanged || roomChanged || attendeeCount !== before.attendeeCount) {
+    await assertBookable(sql, actor, room, startsAt, endsAt, { attendeeCount }, bookingId);
+  }
+
+  try {
+    const res = await sql.query(
+      `UPDATE bookings
+          SET title = coalesce($2, title),
+              -- ไม่ส่งฟิลด์มา = ไม่แก้ (เดิมตั้งเป็น NULL ทำให้การแก้เฉพาะบางฟิลด์ลบวัตถุประสงค์/หมายเหตุทิ้ง)
+              purpose = CASE WHEN $11 THEN $3 ELSE purpose END,
+              notes = CASE WHEN $12 THEN $4 ELSE notes END,
+              starts_at = $5, ends_at = $6, attendee_count = $7,
+              privacy = coalesce($8, privacy),
+              reminder_leads = CASE WHEN $13 THEN $14::int[] ELSE reminder_leads END,
+              priority = coalesce($15, priority),
+              category = CASE WHEN $16 THEN $17 ELSE category END,
+              -- ย้ายห้อง: ใช้ช่วงกันชนของห้องใหม่ (trigger คำนวณช่วงที่กันไว้ใหม่ให้)
+              room_id = $18,
+              buffer_before_minutes = CASE WHEN $19 THEN $20 ELSE buffer_before_minutes END,
+              buffer_after_minutes = CASE WHEN $19 THEN $21 ELSE buffer_after_minutes END,
+              check_in_token = CASE WHEN $19 AND check_in_token IS NULL THEN $22 ELSE check_in_token END,
+              version = version + 1, updated_by = $9
+        WHERE id = $1 AND version = $10`,
+      [
         bookingId,
-        [before.bookerProfileId, ...(await internalAttendeeIds(sql, bookingId))],
-        { title: input.title ?? before.title, startsAt, endsAt, roomName: room.name, roomMapLink: room.mapLink },
-        { profileId: before.bookerProfileId, leads: reminderLeads },
-      );
+        input.title?.trim() ?? null,
+        input.purpose ?? null,
+        input.notes ?? null,
+        startsAt,
+        endsAt,
+        attendeeCount,
+        input.privacy ?? null,
+        actor.profileId,
+        input.expectedVersion,
+        input.purpose !== undefined,
+        input.notes !== undefined,
+        remindersChanged,
+        input.reminderLeads ?? null,
+        input.priority ?? null,
+        input.category !== undefined,
+        input.category?.trim() || null,
+        room.id,
+        roomChanged,
+        room.policy.bufferBeforeMinutes,
+        room.policy.bufferAfterMinutes,
+        room.policy.checkInRequired ? newToken(12) : null,
+      ],
+    );
+    if (res.rowCount === 0) throw new ConflictError(t('error.versionConflict'));
+  } catch (error) {
+    if (pgErrorCode(error) === PG_ERROR.exclusionViolation) {
+      const range = blockedRange(room.policy, startsAt, endsAt);
+      throw conflictError(await findConflict(sql, room.id, range.start, range.end, bookingId));
     }
+    throw error;
+  }
 
+  let attendeeProfileIds: string[] | undefined;
+  if (input.attendees) attendeeProfileIds = await syncAttendees(sql, bookingId, input.attendees);
+  if (input.resources) await syncResources(sql, bookingId, input.resources);
+
+  const title = input.title?.trim() || before.title;
+  if ((timeChanged || roomChanged || remindersChanged || input.attendees || input.title) && before.status === 'confirmed') {
+    // เวลา/ห้อง/การแจ้งเตือน/ผู้เข้าร่วม/หัวข้อเปลี่ยน -> ยกเลิก reminder เดิมแล้วตั้งใหม่ทั้งหมด
+    // (การจองที่รออนุมัติยังไม่ตั้งเตือน จะตั้งตอนอนุมัติ; เช็กอินแล้วคือเริ่มประชุมแล้ว)
+    await cancelPendingJobs(sql, bookingId, ['booking.reminder']);
+    await scheduleRemindersForAll(
+      sql,
+      bookingId,
+      [before.bookerProfileId, ...(await internalAttendeeIds(sql, bookingId))],
+      { title, startsAt, endsAt, roomName: room.name, roomMapLink: room.mapLink },
+      { profileId: before.bookerProfileId, leads: reminderLeads },
+    );
+  }
+
+  if (opts.notify && !onlyReminders) {
     const emails = await sql.query<{ email: string }>('SELECT email FROM booking_attendees WHERE booking_id = $1', [
       bookingId,
     ]);
-    if (!onlyReminders) await notifyBookingEvent(
+    await notifyBookingEvent(
       sql,
       actor,
       {
         id: bookingId,
-        title: input.title ?? before.title,
+        title,
         startsAt,
         endsAt,
         roomName: room.name,
@@ -928,24 +1026,29 @@ export async function updateBooking(
         privacy: input.privacy ?? before.privacy,
       },
       'booking.updated',
-      { attendeeProfileIds, attendeeEmails: emails.rows.map((r) => r.email) },
+      {
+        // ไม่ได้แก้รายชื่อ ก็ยังต้องแจ้งผู้เข้าร่วมคนในเดิมทุกคน (เดิมส่งแค่อีเมล คนในไม่ได้ทาง LINE/กระดิ่ง)
+        attendeeProfileIds: attendeeProfileIds ?? (await internalAttendeeIds(sql, bookingId)),
+        attendeeEmails: emails.rows.map((r) => r.email),
+        revision: before.version + 1,
+      },
     );
+  }
 
-    await writeAudit(sql, {
-      actorProfileId: actor.profileId,
-      actorEmail: actor.email,
-      action: 'booking.update',
-      resourceType: 'booking',
-      resourceId: bookingId,
-      before,
-      after: { title: input.title ?? before.title, startsAt, endsAt, attendeeCount },
-      ipHint: actor.ipHint,
-      userAgent: actor.userAgent,
-      correlationId: actor.correlationId,
-    });
-
-    return (await getBookingRecord(sql, bookingId))!;
+  await writeAudit(sql, {
+    actorProfileId: actor.profileId,
+    actorEmail: actor.email,
+    action: 'booking.update',
+    resourceType: 'booking',
+    resourceId: bookingId,
+    before,
+    after: { title, roomId: room.id, startsAt, endsAt, attendeeCount, scope: input.scope ?? 'this' },
+    ipHint: actor.ipHint,
+    userAgent: actor.userAgent,
+    correlationId: actor.correlationId,
   });
+
+  return (await getBookingRecord(sql, bookingId))!;
 }
 
 export async function cancelBooking(
@@ -958,6 +1061,7 @@ export async function cancelBooking(
   return withTx(ctx, async (sql) => {
     const booking = await getBookingRecord(sql, bookingId);
     if (!booking) throw new NotFoundError(t('error.notFound'));
+    assertOwnerOrManager(actor, booking);
     if (booking.status === 'cancelled') return { cancelled: 0 };
 
     const room = await loadRoomOrThrow(sql, booking.roomId);

@@ -82,14 +82,13 @@ export function EditBookingDialog({
             b.permissions.isOwner && ['confirmed', 'pending'].includes(b.status) && startsAt.getTime() > Date.now(),
           isSeries: b.seriesId !== null,
         };
-        // ห้องที่ถูกเก็บเข้าคลังแล้วไม่อยู่ในรายการปกติ — ไม่มีห้องก็แก้ไม่ได้ (เปลี่ยนห้องไม่ได้อยู่แล้ว)
-        const room = rooms.find((r) => r.id === b.roomId);
-        if (!room) {
+        // ย้ายไปห้องไหนก็ได้ที่เปิดให้จอง — ห้องที่ถูกเก็บเข้าคลังแล้วไม่อยู่ในรายการ จึงแก้การจองนั้นไม่ได้
+        if (!rooms.some((r) => r.id === b.roomId)) {
           toast.show(t('error.notFound'), 'error');
           onClose();
           return;
         }
-        setData({ editing, rooms: [room], amenities });
+        setData({ editing, rooms, amenities });
       })
       .catch((error) => {
         if (!active) return;

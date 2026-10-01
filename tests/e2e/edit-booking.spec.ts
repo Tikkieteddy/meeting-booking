@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { STORAGE_STATE, bookingDateISO, openCalendar } from './helpers';
 
+
 /**
  * แก้ไขการจองที่จองไปแล้ว (ผู้ใช้ขอ 1 ต.ค. 2569) — เปิดได้จากหน้ารายละเอียดแบบลิงก์ตรง
  * และจากหน้าต่างรายละเอียดในหน้า "การจองของฉัน" ใช้ฟอร์มเดียวกับตอนจอง แต่เปลี่ยนห้องไม่ได้
@@ -27,7 +28,7 @@ async function createBooking(page: Page, title: string, startTime: string, endTi
   return (await res.json()).booking as { id: string };
 }
 
-test('แก้ไขหัวข้อและเวลาจากหน้ารายละเอียด', async ({ page }) => {
+test('แก้ไขหัวข้อ ย้ายห้อง และเวลาจากหน้ารายละเอียด', async ({ page }) => {
   const title = `ก่อนแก้ ${Date.now()}`;
   const booking = await createBooking(page, title, '12:00', '12:30');
 
@@ -38,12 +39,13 @@ test('แก้ไขหัวข้อและเวลาจากหน้�
   await expect(dialog.getByLabel('วัตถุประสงค์')).toHaveValue('วัตถุประสงค์เดิม');
   await expect(dialog.getByLabel('เวลาเริ่ม')).toHaveValue('12:00');
   await expect(dialog.getByLabel('เวลาสิ้นสุด')).toHaveValue('12:30');
-  await expect(dialog.getByLabel('ห้องประชุม')).toBeDisabled();
   // การเกิดซ้ำตั้งได้เฉพาะตอนจอง
   await expect(dialog.getByRole('group', { name: 'การจองซ้ำ' })).toHaveCount(0);
 
   const newTitle = `หลังแก้ ${Date.now()}`;
   await dialog.getByLabel('หัวข้อประชุม').fill(newTitle);
+  // ย้ายห้องได้ (ผู้ใช้ขอ 1 ต.ค. 2569) — ห้องกองบรรณาธิการไม่มีสเปกอื่นจองช่วงนี้
+  await dialog.getByLabel('ห้องประชุม').selectOption({ label: 'ห้องประชุมกองบรรณาธิการ · 12 คน' });
   await dialog.getByLabel('เวลาสิ้นสุด').selectOption('13:00');
   const saved = page.waitForResponse((r) => r.url().endsWith(`/api/bookings/${booking.id}`) && r.request().method() === 'PATCH');
   await dialog.getByRole('button', { name: 'บันทึกการแก้ไข' }).click();
@@ -51,11 +53,12 @@ test('แก้ไขหัวข้อและเวลาจากหน้�
   expect(response.status()).toBe(200);
   // ส่งเฉพาะช่องที่เปลี่ยน — ไม่ส่งผู้เข้าร่วม/อุปกรณ์ซ้ำ (ส่งซ้ำจะล้างคำตอบรับของผู้เข้าร่วม)
   const sent = response.request().postDataJSON();
-  expect(Object.keys(sent).sort()).toEqual(['dateISO', 'endTime', 'expectedVersion', 'startTime', 'title']);
+  expect(Object.keys(sent).sort()).toEqual(['dateISO', 'endTime', 'expectedVersion', 'roomId', 'startTime', 'title']);
 
   await expect(page.getByText('บันทึกการแก้ไขแล้ว')).toBeVisible();
   await expect(page.getByRole('heading', { name: newTitle, level: 1 })).toBeVisible();
   await expect(page.getByText('12:00 – 13:00 น.', { exact: false })).toBeVisible();
+  await expect(page.getByText('ห้องประชุมกองบรรณาธิการ', { exact: false }).first()).toBeVisible();
 });
 
 test('แก้ไขจากหน้าต่างรายละเอียดในหน้าการจองของฉัน', async ({ page }) => {
@@ -89,4 +92,17 @@ test('หน้าต่างฟอร์มจองอยู่ในกร�
   await dialog.getByLabel('หมายเหตุ').scrollIntoViewIfNeeded();
   await expect(dialog.getByLabel('หมายเหตุ')).toBeInViewport();
   await expect(dialog.getByRole('button', { name: 'ยืนยันการจอง' })).toBeInViewport();
+});
+
+test('แก้ไขหรือยกเลิกการจองของคนอื่นไม่ได้ แม้เป็นผู้อนุมัติ', async ({ page, browser }) => {
+  const booking = await createBooking(page, `ของพนักงาน ${Date.now()}`, '12:30', '13:00');
+  const other = await browser.newContext({ storageState: STORAGE_STATE.approver });
+  try {
+    const edit = await other.request.patch(`/api/bookings/${booking.id}`, { data: { title: 'แอบแก้', expectedVersion: 1 } });
+    expect(edit.status()).toBe(403);
+    const cancel = await other.request.post(`/api/bookings/${booking.id}/cancel`, { data: { reason: 'แอบยกเลิก' } });
+    expect(cancel.status()).toBe(403);
+  } finally {
+    await other.close();
+  }
 });

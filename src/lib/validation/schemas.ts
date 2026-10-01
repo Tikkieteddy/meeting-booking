@@ -124,8 +124,12 @@ export const createBookingSchema = z.object({
 
 export const updateBookingSchema = createBookingSchema
   .partial()
-  .omit({ roomId: true, recurrence: true, idempotencyKey: true })
-  .extend({ expectedVersion: z.coerce.number().int().min(1) });
+  .omit({ recurrence: true, idempotencyKey: true, overrideReason: true })
+  .extend({
+    expectedVersion: z.coerce.number().int().min(1),
+    // series = แก้ทุกครั้งที่ยังไม่ถึงในชุดเกิดซ้ำ (ADR-018)
+    scope: z.enum(['this', 'series']).default('this'),
+  });
 
 export const cancelBookingSchema = z.object({
   reason: safeText(300, 'เหตุผล').optional().nullable(),

@@ -84,6 +84,8 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
   // ค่าเตือนตอนเปิดฟอร์มแก้ไข — ใช้เทียบว่าผู้ใช้เปลี่ยนจริงหรือไม่
   const [initialLeads, setInitialLeads] = useState<number[] | null>(editing?.reminderLeads ?? null);
   const showReminders = !editing || editing.canEditReminders;
+  // การจองในชุดเกิดซ้ำ: แก้เฉพาะครั้งนี้ หรือทุกครั้งที่ยังไม่ถึง
+  const [scope, setScope] = useState<'this' | 'series'>('this');
   // เวลาสิ้นสุดที่ผู้ใช้เลือกเอง — null = ใช้ค่าเริ่มต้น (เริ่ม + ระยะขั้นต่ำของห้อง)
   const [chosenEndTime, setChosenEndTime] = useState<string | null>(editing?.endTime ?? null);
   const [loading, setLoading] = useState(false);
@@ -141,6 +143,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
    */
   const buildUpdate = (e: EditingBooking) => {
     const patch: Record<string, unknown> = {};
+    if (roomId !== e.roomId) patch.roomId = roomId;
     if (title.trim() !== e.title) patch.title = title;
     if ((purpose || null) !== e.purpose) patch.purpose = purpose || null;
     if ((notes || null) !== e.notes) patch.notes = notes || null;
@@ -178,7 +181,7 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         }
         await apiFetch(`/api/bookings/${editing.id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ expectedVersion: editing.version, ...patch }),
+          body: JSON.stringify({ expectedVersion: editing.version, ...patch, ...(editing.isSeries ? { scope } : {}) }),
         });
         toast.show(t('booking.edit.saved'), 'success');
         onSaved?.();
@@ -278,7 +281,25 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         )}
 
         {editing?.isSeries && (
-          <p className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">{t('booking.edit.seriesNote')}</p>
+          <fieldset className="flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-950">
+            <legend className="px-1 font-medium">{t('booking.edit.scope')}</legend>
+            {(['this', 'series'] as const).map((value) => (
+              <label key={value} className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="bk-edit-scope"
+                  className="size-5 accent-brand-700"
+                  checked={scope === value}
+                  onChange={() => {
+                    setScope(value);
+                    // แก้ทั้งชุดคงวันที่ของแต่ละครั้งไว้ — คืนวันที่เดิมถ้าเคยเปลี่ยนไว้
+                    if (value === 'series') setDateISO(editing.dateISO);
+                  }}
+                />
+                {t(value === 'this' ? 'booking.edit.scopeThis' : 'booking.edit.scopeSeries')}
+              </label>
+            ))}
+          </fieldset>
         )}
 
         <Field label={t('booking.title')} htmlFor="bk-title" required error={fieldErrors.title}>
@@ -294,14 +315,8 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label={t('booking.room')}
-            htmlFor="bk-room"
-            required
-            error={fieldErrors.roomId}
-            hint={editing ? t('booking.edit.roomFixed') : undefined}
-          >
-            <Select id="bk-room" value={roomId} onChange={(event) => setRoomId(event.target.value)} disabled={Boolean(editing)}>
+          <Field label={t('booking.room')} htmlFor="bk-room" required error={fieldErrors.roomId}>
+            <Select id="bk-room" value={roomId} onChange={(event) => setRoomId(event.target.value)}>
               {rooms.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name} · {r.capacity} {t('common.people')}
@@ -327,8 +342,21 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
             </span>
             <MapLink href={room.mapLink} compact className="ms-auto shrink-0" />
           </div>
-          <Field label={t('booking.date')} htmlFor="bk-date" required error={fieldErrors.dateISO}>
-            <Input id="bk-date" type="date" value={dateISO} onChange={(event) => setDateISO(event.target.value)} required />
+          <Field
+            label={t('booking.date')}
+            htmlFor="bk-date"
+            required
+            error={fieldErrors.dateISO}
+            hint={scope === 'series' ? t('booking.edit.seriesDateHint') : undefined}
+          >
+            <Input
+              id="bk-date"
+              type="date"
+              value={dateISO}
+              onChange={(event) => setDateISO(event.target.value)}
+              required
+              disabled={scope === 'series'}
+            />
           </Field>
         </div>
 

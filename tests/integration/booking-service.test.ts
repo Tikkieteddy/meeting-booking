@@ -15,7 +15,7 @@ import {
   joinWaitlist,
   updateBooking,
 } from '@/lib/domain/booking-service';
-import { ConflictError, ValidationError } from '@/lib/domain/errors';
+import { ConflictError, ForbiddenError, ValidationError } from '@/lib/domain/errors';
 import { dispatchNotifications } from '@/lib/notify/worker';
 import { runMaintenance } from '@/lib/domain/maintenance';
 import { searchBookings, searchFreeSlots, searchRooms } from '@/lib/domain/search';
@@ -217,31 +217,142 @@ describe('แก้ไข ยกเลิก และคิวรอ', () => {
     ).rejects.toThrow(ConflictError);
   });
 
-  it('ห้องที่ต้องอนุมัติ: อนุมัติแล้วผู้จองย้ายเวลาเองไม่ได้ แต่แก้หัวข้อได้ และผู้ดูแลย้ายได้', async () => {
+  it('ผู้จองย้ายห้องและเวลาได้ — ห้องใหม่ใช้ช่วงกันชนของห้องนั้น และชนการจองอื่นไม่ได้', async () => {
     const employee = actorFor(world, 'employee');
-    const { booking } = await createBooking(ctxFor(world, 'employee'), employee, baseBooking({ roomId: world.rooms.approval }));
-    const approved = await decideApproval(ctxFor(world, 'approver'), actorFor(world, 'approver'), booking.id, 'approved', null);
+    const { booking } = await createBooking(ctxFor(world, 'employee'), employee, baseBooking());
 
+    const moved = await updateBooking(ctxFor(world, 'employee'), employee, booking.id, {
+      roomId: world.rooms.buffered,
+      startTime: '13:00',
+      endTime: '14:00',
+      expectedVersion: booking.version,
+    });
+    expect(moved.roomId).toBe(world.rooms.buffered);
+    const period = await withServiceTx(async (sql) =>
+      (await sql.query<{ buffer_before_minutes: number }>('SELECT buffer_before_minutes FROM bookings WHERE id = $1', [booking.id]))
+        .rows[0]!.buffer_before_minutes,
+    );
+    expect(period).toBe(15);
+
+    // ห้องเดิมช่วงเดิมว่างแล้ว ให้คนอื่นจองได้
+    await createBooking(ctxFor(world, 'employee2'), actorFor(world, 'employee2'), baseBooking({ title: 'จองช่วงที่ว่างลง' }));
+
+    // ย้ายกลับไปทับการจองของคนอื่นไม่ได้
     await expect(
       updateBooking(ctxFor(world, 'employee'), employee, booking.id, {
-        startTime: '14:00',
-        endTime: '15:00',
-        expectedVersion: approved.version,
+        roomId: world.rooms.simple,
+        startTime: '10:00',
+        endTime: '11:00',
+        expectedVersion: moved.version,
       }),
-    ).rejects.toThrow('ต้องขออนุมัติ');
+    ).rejects.toThrow(ConflictError);
+  });
 
-    const renamed = await updateBooking(ctxFor(world, 'employee'), employee, booking.id, {
-      title: 'เปลี่ยนชื่อได้',
-      expectedVersion: approved.version,
+  it('แก้ไขหรือยกเลิกได้เฉพาะการจองของตัวเอง — แม้เป็นผู้อนุมัติของห้องก็แก้ของคนอื่นไม่ได้', async () => {
+    const { booking } = await createBooking(
+      ctxFor(world, 'employee'),
+      actorFor(world, 'employee'),
+      baseBooking({ roomId: world.rooms.approval }),
+    );
+    for (const who of ['employee2', 'approver'] as const) {
+      await expect(
+        updateBooking(ctxFor(world, who), actorFor(world, who), booking.id, { title: 'แอบแก้', expectedVersion: booking.version }),
+      ).rejects.toThrow(ForbiddenError);
+    }
+    await expect(
+      cancelBooking(ctxFor(world, 'approver'), actorFor(world, 'approver'), booking.id, 'แอบยกเลิก'),
+    ).rejects.toThrow(ForbiddenError);
+
+    // ผู้ดูแลระบบยังแก้แทนได้ (กรณีฉุกเฉิน)
+    const byAdmin = await updateBooking(ctxFor(world, 'admin'), actorFor(world, 'admin'), booking.id, {
+      title: 'ผู้ดูแลแก้ให้',
+      expectedVersion: booking.version,
     });
-    expect(renamed.title).toBe('เปลี่ยนชื่อได้');
+    expect(byAdmin.title).toBe('ผู้ดูแลแก้ให้');
+  });
 
-    const moved = await updateBooking(ctxFor(world, 'admin'), actorFor(world, 'admin'), booking.id, {
+  it('แก้ทั้งชุดเกิดซ้ำ: ทุกครั้งที่ยังไม่ถึงเปลี่ยนห้อง/เวลา/หัวข้อ วันที่คงเดิม และแจ้งผู้เข้าร่วมครั้งเดียว', async () => {
+    const employee = actorFor(world, 'employee');
+    const result = await createRecurringBookings(ctxFor(world, 'employee'), employee, {
+      ...baseBooking({ startTime: '08:00', endTime: '09:00', attendees: [{ email: world.users.employee2.email }] }),
+      recurrence: { frequency: 'daily', intervalCount: 1, occurrenceCount: 3 },
+    });
+    expect(result.created).toHaveLength(3);
+    const first = result.created[0]!;
+
+    // ย้ายวันทั้งชุดไม่ได้
+    await expect(
+      updateBooking(ctxFor(world, 'employee'), employee, first.id, {
+        dateISO: futureDateISO(20),
+        expectedVersion: first.version,
+        scope: 'series',
+      }),
+    ).rejects.toThrow('ย้ายวันไม่ได้');
+
+    await updateBooking(ctxFor(world, 'employee'), employee, first.id, {
+      roomId: world.rooms.buffered,
+      title: 'ประชุมประจำวัน (ย้ายห้อง)',
       startTime: '14:00',
       endTime: '15:00',
-      expectedVersion: renamed.version,
+      expectedVersion: first.version,
+      scope: 'series',
     });
-    expect(moved.status).toBe('confirmed');
+
+    const rows = await withServiceTx(async (sql) => {
+      const res = await sql.query<{ id: string; title: string; room_id: string; starts_at: Date }>(
+        'SELECT id, title, room_id, starts_at FROM bookings WHERE series_id = $1 ORDER BY starts_at',
+        [first.seriesId],
+      );
+      return res.rows;
+    });
+    expect(rows).toHaveLength(3);
+    rows.forEach((row, i) => {
+      expect(row.title).toBe('ประชุมประจำวัน (ย้ายห้อง)');
+      expect(row.room_id).toBe(world.rooms.buffered);
+      expect(row.starts_at.toISOString()).toBe(localDateTimeToUtc(futureDateISO(10 + i), '14:00').toISOString());
+    });
+
+    const notified = await withServiceTx(async (sql) =>
+      Number(
+        (
+          await sql.query<{ n: string }>(
+            `SELECT count(*) AS n FROM in_app_notifications WHERE profile_id = $1 AND event_type = 'booking.updated'`,
+            [world.users.employee2.id],
+          )
+        ).rows[0]!.n,
+      ),
+    );
+    expect(notified).toBe(1);
+  });
+
+  it('แก้หลายครั้ง ผู้เข้าร่วมคนในได้รับแจ้งทาง LINE ทุกครั้ง แม้ไม่ได้แก้รายชื่อ', async () => {
+    const employee = actorFor(world, 'employee');
+    const { booking } = await createBooking(
+      ctxFor(world, 'employee'),
+      employee,
+      baseBooking({ attendees: [{ email: world.users.employee2.email }] }),
+    );
+    const first = await updateBooking(ctxFor(world, 'employee'), employee, booking.id, {
+      title: 'แก้ครั้งที่ 1',
+      expectedVersion: booking.version,
+    });
+    await updateBooking(ctxFor(world, 'employee'), employee, booking.id, {
+      startTime: '15:00',
+      endTime: '16:00',
+      expectedVersion: first.version,
+    });
+    const lineJobs = await withServiceTx(async (sql) =>
+      Number(
+        (
+          await sql.query<{ n: string }>(
+            `SELECT count(*) AS n FROM notification_jobs
+              WHERE booking_id = $1 AND recipient_profile_id = $2 AND channel = 'line' AND event_type = 'booking.updated'`,
+            [booking.id, world.users.employee2.id],
+          )
+        ).rows[0]!.n,
+      ),
+    );
+    expect(lineJobs).toBe(2);
   });
 
   it('รายละเอียดการจองมีความสำคัญ หมวด และรหัสบัญชีผู้เข้าร่วม (ให้ฟอร์มแก้ไขเติมค่าเดิมได้ครบ)', async () => {
