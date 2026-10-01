@@ -7,6 +7,8 @@ import { STORAGE_STATE, bookingDateISO, openCalendar } from './helpers';
  */
 test.use({ storageState: STORAGE_STATE.employee });
 
+// ห้องย่อย 2 ช่วง 12:00–13:00 และ 15:00–15:30 — สเปกอื่นใช้ห้องนี้ที่ 09:00, 11:00, 14:00, 16:00 (ห้ามชนกัน)
+
 async function createBooking(page: Page, title: string, startTime: string, endTime: string) {
   const rooms = await (await page.request.get('/api/rooms')).json();
   const room = rooms.rooms.find((r: { name: string }) => r.name === 'ห้องประชุมย่อย 2');
@@ -27,22 +29,22 @@ async function createBooking(page: Page, title: string, startTime: string, endTi
 
 test('แก้ไขหัวข้อและเวลาจากหน้ารายละเอียด', async ({ page }) => {
   const title = `ก่อนแก้ ${Date.now()}`;
-  const booking = await createBooking(page, title, '16:00', '16:30');
+  const booking = await createBooking(page, title, '12:00', '12:30');
 
   await page.goto(`/bookings/${booking.id}`);
   await page.getByRole('button', { name: 'แก้ไข', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'แก้ไขการจอง' });
   await expect(dialog.getByLabel('หัวข้อประชุม')).toHaveValue(title);
   await expect(dialog.getByLabel('วัตถุประสงค์')).toHaveValue('วัตถุประสงค์เดิม');
-  await expect(dialog.getByLabel('เวลาเริ่ม')).toHaveValue('16:00');
-  await expect(dialog.getByLabel('เวลาสิ้นสุด')).toHaveValue('16:30');
+  await expect(dialog.getByLabel('เวลาเริ่ม')).toHaveValue('12:00');
+  await expect(dialog.getByLabel('เวลาสิ้นสุด')).toHaveValue('12:30');
   await expect(dialog.getByLabel('ห้องประชุม')).toBeDisabled();
   // การเกิดซ้ำตั้งได้เฉพาะตอนจอง
   await expect(dialog.getByRole('group', { name: 'การจองซ้ำ' })).toHaveCount(0);
 
   const newTitle = `หลังแก้ ${Date.now()}`;
   await dialog.getByLabel('หัวข้อประชุม').fill(newTitle);
-  await dialog.getByLabel('เวลาสิ้นสุด').selectOption('17:00');
+  await dialog.getByLabel('เวลาสิ้นสุด').selectOption('13:00');
   const saved = page.waitForResponse((r) => r.url().endsWith(`/api/bookings/${booking.id}`) && r.request().method() === 'PATCH');
   await dialog.getByRole('button', { name: 'บันทึกการแก้ไข' }).click();
   const response = await saved;
@@ -53,12 +55,12 @@ test('แก้ไขหัวข้อและเวลาจากหน้�
 
   await expect(page.getByText('บันทึกการแก้ไขแล้ว')).toBeVisible();
   await expect(page.getByRole('heading', { name: newTitle, level: 1 })).toBeVisible();
-  await expect(page.getByText('16:00 – 17:00 น.', { exact: false })).toBeVisible();
+  await expect(page.getByText('12:00 – 13:00 น.', { exact: false })).toBeVisible();
 });
 
 test('แก้ไขจากหน้าต่างรายละเอียดในหน้าการจองของฉัน', async ({ page }) => {
   const title = `แก้จากรายการ ${Date.now()}`;
-  await createBooking(page, title, '17:00', '17:30');
+  await createBooking(page, title, '15:00', '15:30');
 
   await page.goto('/bookings');
   await page.getByRole('button', { name: new RegExp(title) }).click();
