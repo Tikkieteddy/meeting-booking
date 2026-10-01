@@ -115,6 +115,16 @@ export function Overlay({
       if (items.length === 0) return;
       const first = items[0]!;
       const last = items[items.length - 1]!;
+      // กด Tab ก่อน focus ถูกย้ายเข้า dialog (เครื่องช้า ตัวจับเวลา 30ms ยังไม่ทำงาน)
+      // focus ยังอยู่ข้างหลัง — ดึงเข้ามาใน dialog ไม่ให้เดินไปตามหน้าข้างหลังได้
+      const active = document.activeElement as HTMLElement | null;
+      if (!panelRef.current?.contains(active)) {
+        // focus อยู่ใน dialog อื่นที่ซ้อนอยู่ข้างบน (เช่น หน้าต่างยืนยันยกเลิก) — ให้ตัวนั้นจัดการเอง
+        if (active?.closest('[role="dialog"]')) return;
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
