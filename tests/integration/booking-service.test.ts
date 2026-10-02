@@ -248,7 +248,7 @@ describe('แก้ไข ยกเลิก และคิวรอ', () => {
     ).rejects.toThrow(ConflictError);
   });
 
-  it('แก้ไขหรือยกเลิกได้เฉพาะการจองของตัวเอง — แม้เป็นผู้อนุมัติของห้องก็แก้ของคนอื่นไม่ได้', async () => {
+  it('แก้ไขหรือยกเลิกได้เฉพาะการจองของตัวเอง — ผู้อนุมัติของห้องและผู้ดูแลระบบก็แก้ของคนอื่นไม่ได้', async () => {
     const { booking } = await createBooking(
       ctxFor(world, 'employee'),
       actorFor(world, 'employee'),
@@ -263,12 +263,24 @@ describe('แก้ไข ยกเลิก และคิวรอ', () => {
       cancelBooking(ctxFor(world, 'approver'), actorFor(world, 'approver'), booking.id, 'แอบยกเลิก'),
     ).rejects.toThrow(ForbiddenError);
 
-    // ผู้ดูแลระบบยังแก้แทนได้ (กรณีฉุกเฉิน)
-    const byAdmin = await updateBooking(ctxFor(world, 'admin'), actorFor(world, 'admin'), booking.id, {
-      title: 'ผู้ดูแลแก้ให้',
-      expectedVersion: booking.version,
-    });
-    expect(byAdmin.title).toBe('ผู้ดูแลแก้ให้');
+    // ผู้ดูแลระบบก็แก้/ยกเลิกของคนอื่นไม่ได้ (ผู้ใช้ยืนยัน 2 ต.ค. 2569)
+    await expect(
+      updateBooking(ctxFor(world, 'admin'), actorFor(world, 'admin'), booking.id, { title: 'ผู้ดูแลแก้ให้', expectedVersion: booking.version }),
+    ).rejects.toThrow(ForbiddenError);
+    await expect(
+      cancelBooking(ctxFor(world, 'admin'), actorFor(world, 'admin'), booking.id, 'ผู้ดูแลยกเลิก'),
+    ).rejects.toThrow(ForbiddenError);
+  });
+
+  it('ยกเลิกต้องระบุเหตุผล', async () => {
+    const { booking } = await createBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), baseBooking());
+    for (const reason of [null, '   ']) {
+      await expect(
+        cancelBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), booking.id, reason),
+      ).rejects.toThrow(ValidationError);
+    }
+    const done = await cancelBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), booking.id, 'ประชุมเลื่อน');
+    expect(done.cancelled).toBe(1);
   });
 
   it('แก้ทั้งชุดเกิดซ้ำ: ทุกครั้งที่ยังไม่ถึงเปลี่ยนห้อง/เวลา/หัวข้อ วันที่คงเดิม และแจ้งผู้เข้าร่วมครั้งเดียว', async () => {
@@ -393,7 +405,7 @@ describe('แก้ไข ยกเลิก และคิวรอ', () => {
       attendeeCount: 2,
     });
 
-    await cancelBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), booking.id, null);
+    await cancelBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), booking.id, 'ติดธุระ');
 
     const entry = await withServiceTx(async (sql) => {
       const res = await sql.query<{ status: string; offer_expires_at: Date | null }>(

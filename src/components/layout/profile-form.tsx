@@ -21,10 +21,12 @@ type Props = {
   };
   preferences: { emailEnabled: boolean; lineEnabled: boolean; inAppEnabled: boolean; reminderLeads: number[] };
   lineLink: { status: string; linkedAt: string | null } | null;
+  /** ปุ่มเพิ่มเพื่อนบัญชี LINE ทางการ (ตั้ง LINE_BOT_BASIC_ID ใน Vercel) — null = ยังไม่ได้ตั้ง */
+  lineAddFriend?: { id: string; url: string } | null;
 };
 
 /** หน้าโปรไฟล์: ข้อมูลส่วนตัว รหัสผ่าน การแจ้งเตือน และการเชื่อม LINE */
-export function ProfileForm({ profile, preferences, lineLink }: Props) {
+export function ProfileForm({ profile, preferences, lineLink, lineAddFriend }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<'profile' | 'password' | 'notify'>('profile');
@@ -283,9 +285,30 @@ export function ProfileForm({ profile, preferences, lineLink }: Props) {
               </>
             ) : (
               <>
-                <p className="mt-1 text-xs text-ink-500">
-                  กดขอรหัส แล้วส่งรหัสนั้นในแชตบัญชีทางการของระบบ เพื่อยืนยันว่าเป็นคุณเอง
-                </p>
+                {/* ขั้นตอนเชื่อม LINE ให้คนทั่วไปทำตามได้เอง (ผู้ใช้ขอ 2 ต.ค. 2569) */}
+                <ol className="mt-2 flex list-decimal flex-col gap-1.5 ps-5 text-xs text-ink-700">
+                  <li>
+                    {lineAddFriend ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span>
+                          {t('notify.lineStep1With')} <strong className="font-mono">{lineAddFriend.id}</strong>
+                        </span>
+                        <a
+                          href={lineAddFriend.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex h-8 items-center rounded-lg bg-[#06C755] px-3 text-xs font-bold text-ink-900 hover:brightness-95"
+                        >
+                          {t('notify.lineAddFriend')}
+                        </a>
+                      </span>
+                    ) : (
+                      t('notify.lineStep1Without')
+                    )}
+                  </li>
+                  <li>{t('notify.lineStep2')}</li>
+                  <li>{t('notify.lineStep3')}</li>
+                </ol>
                 {linkCode && (
                   <div className="mt-3 rounded-lg bg-brand-50 px-3 py-3">
                     <div className="flex flex-wrap items-center gap-3">

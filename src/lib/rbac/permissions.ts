@@ -7,7 +7,7 @@
 export const PERMISSIONS = {
   'booking:create': { resource: 'booking', action: 'create', description: 'สร้างการจองของตนเอง' },
   'booking:read_all': { resource: 'booking', action: 'read_all', description: 'ดูรายละเอียดการจองของผู้อื่น' },
-  'booking:manage_all': { resource: 'booking', action: 'manage_all', description: 'แก้ไขหรือยกเลิกการจองของผู้อื่น' },
+  'booking:manage_all': { resource: 'booking', action: 'manage_all', description: 'ข้ามข้อจำกัดความจุและเวลาย้อนหลังเมื่อจอง (แก้/ยกเลิกได้เฉพาะการจองของตัวเองเหมือนทุกคน)' },
   'booking:approve': { resource: 'booking', action: 'approve', description: 'อนุมัติหรือปฏิเสธคำขอจอง' },
   'booking:check_in_any': { resource: 'booking', action: 'check_in_any', description: 'เช็กอินแทนผู้จองได้' },
   'room:manage': { resource: 'room', action: 'manage', description: 'เพิ่ม แก้ไข ปิด และเก็บห้องเข้าคลัง' },

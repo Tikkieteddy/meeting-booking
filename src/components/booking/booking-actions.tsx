@@ -27,6 +27,7 @@ export function BookingActions({
   const toast = useToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [scope, setScope] = useState<'this' | 'series'>('this');
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -90,19 +91,34 @@ export function BookingActions({
         confirmLabel={t('common.confirm')}
         destructive
         onClose={() => setConfirmOpen(false)}
-        onConfirm={() =>
-          run(async () => {
+        onConfirm={() => {
+          // ต้องใส่เหตุผลทุกครั้ง — เหตุผลถูกส่งไปบอกผู้เข้าร่วมด้วย
+          if (!reason.trim()) {
+            setReasonError(t('booking.cancelReasonRequired'));
+            return;
+          }
+          void run(async () => {
             await apiFetch(`/api/bookings/${bookingId}/cancel`, {
               method: 'POST',
               body: JSON.stringify({ reason: reason || null, scope }),
             });
             setConfirmOpen(false);
-          }, t('booking.cancelled'))
-        }
+          }, t('booking.cancelled'));
+        }}
       >
         <div className="flex flex-col gap-3">
-          <Field label={t('booking.cancelReason')} htmlFor="reason">
-            <Textarea id="reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={300} />
+          <Field label={t('booking.cancelReason')} htmlFor="reason" required error={reasonError ?? undefined}>
+            <Textarea
+              id="reason"
+              value={reason}
+              onChange={(event) => {
+                setReason(event.target.value);
+                setReasonError(null);
+              }}
+              maxLength={300}
+              required
+              aria-invalid={Boolean(reasonError)}
+            />
           </Field>
           {seriesId && (
             <fieldset className="flex flex-col gap-2">

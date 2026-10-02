@@ -4,6 +4,7 @@ import { withTx } from '@/lib/db/pool';
 import { ProfileForm } from '@/components/layout/profile-form';
 import { highestRole, ROLES } from '@/lib/rbac/permissions';
 import { t } from '@/lib/i18n';
+import { env, lineAddFriend } from '@/lib/env';
 
 export const metadata = { title: t('nav.profile') };
 export const dynamic = 'force-dynamic';
@@ -58,6 +59,7 @@ export default async function ProfilePage() {
         }}
         preferences={preferences}
         lineLink={lineLink}
+        lineAddFriend={lineAddFriend(env().LINE_BOT_BASIC_ID)}
       />
     </div>
   );

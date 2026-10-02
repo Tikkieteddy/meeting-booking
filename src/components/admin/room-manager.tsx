@@ -42,7 +42,8 @@ function emptyRoom(): RoomFormState {
     approverProfileIds: [],
     openTime: '08:00',
     closeTime: '20:00',
-    openDays: [1, 2, 3, 4, 5],
+    // ห้องใหม่เปิดทุกวัน (ผู้ใช้ขอ 2 ต.ค. 2569: จองล่วงหน้าวันไหนก็ได้ ย้อนหลังไม่ได้) — ปิดวันไหนให้กดปิดเอง
+    openDays: [0, 1, 2, 3, 4, 5, 6],
     slotStepMinutes: 30,
     minDurationMinutes: 30,
     maxDurationMinutes: 240,

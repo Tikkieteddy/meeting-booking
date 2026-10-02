@@ -39,6 +39,9 @@ const serverSchema = z.object({
   LINE_PROVIDER: z.enum(['messaging-api', 'log']).default('log'),
   LINE_CHANNEL_SECRET: z.string().optional(),
   LINE_CHANNEL_ACCESS_TOKEN: z.string().optional(),
+  // LINE ID ของบัญชีทางการ (Basic ID เช่น @123abcde) — ไม่ใช่ความลับ ใช้แสดงปุ่ม "เพิ่มเพื่อน" ในหน้าโปรไฟล์
+  // รับค่าแบบไม่เข้มงวด (ตรวจตอนใช้ใน lineAddFriend) เพื่อไม่ให้พิมพ์ผิดแล้วทั้งเว็บพัง
+  LINE_BOT_BASIC_ID: z.string().optional(),
 
   CRON_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
@@ -95,3 +98,15 @@ export function allowedEmailDomains(): string[] {
 }
 
 export const isProduction = () => env().APP_ENV === 'production';
+
+/**
+ * ลิงก์เพิ่มเพื่อนบัญชี LINE ทางการ จาก LINE_BOT_BASIC_ID — คืน null ถ้าไม่ได้ตั้งหรือรูปแบบไม่ถูก
+ * รูปแบบลิงก์ https://line.me/R/ti/p/@xxxx เป็นลิงก์มาตรฐานของ LINE เปิดแอปแล้วขึ้นหน้าเพิ่มเพื่อนทันที
+ */
+export function lineAddFriend(basicId: string | undefined): { id: string; url: string } | null {
+  const raw = basicId?.trim();
+  if (!raw) return null;
+  const id = raw.startsWith('@') ? raw : `@${raw}`;
+  if (!/^@[a-z0-9._-]{3,30}$/i.test(id)) return null;
+  return { id, url: `https://line.me/R/ti/p/${encodeURIComponent(id)}` };
+}

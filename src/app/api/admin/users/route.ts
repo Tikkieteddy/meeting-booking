@@ -7,6 +7,7 @@ import { auditStandalone } from "@/lib/audit";
 import { apiOk, withApi } from "@/lib/api/respond";
 import { listEnabledRoleCodes } from "@/lib/domain/roles-admin";
 import { DomainError } from "@/lib/domain/errors";
+import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,15 @@ export const POST = withApi(async (request: Request) => {
     resourceId: result.profileId,
     after: { email: input.email, roleCode: input.roleCode },
   });
-  // ไม่คืน invite token ให้ client — ผู้ถูกเชิญต้องรับจากอีเมลเท่านั้น
-  return apiOk({ profileId: result.profileId }, { status: 201 });
+  /*
+   * ปกติไม่คืนลิงก์เชิญให้ client — ผู้ถูกเชิญรับทางอีเมลเท่านั้น
+   * ยกเว้นตอนระบบยังไม่ได้เชื่อมอีเมล (EMAIL_PROVIDER=log) คำเชิญจะไม่ถึงใครเลย
+   * จึงให้ผู้ดูแล (ผู้มีสิทธิ์ user:manage ซึ่งไว้ใจได้อยู่แล้ว) คัดลอกลิงก์ไปส่งเองทาง LINE
+   * ลิงก์ใช้ได้ครั้งเดียว อายุ 7 วัน และเลิกคืนค่าอัตโนมัติเมื่อตั้ง EMAIL_PROVIDER=resend
+   */
+  const emailReady = env().EMAIL_PROVIDER === "resend";
+  const inviteLink = emailReady
+    ? null
+    : `${env().NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/accept-invite?token=${encodeURIComponent(result.inviteToken)}`;
+  return apiOk({ profileId: result.profileId, inviteLink }, { status: 201 });
 });

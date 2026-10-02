@@ -132,7 +132,8 @@ export const updateBookingSchema = createBookingSchema
   });
 
 export const cancelBookingSchema = z.object({
-  reason: safeText(300, 'เหตุผล').optional().nullable(),
+  // บังคับใส่เหตุผลการยกเลิก (ผู้ใช้ขอ 2 ต.ค. 2569)
+  reason: z.preprocess((v) => v ?? '', safeText(300, 'เหตุผลการยกเลิก', 1, 'กรุณาระบุเหตุผลการยกเลิก')),
   scope: z.enum(['this', 'series']).default('this'),
 });
 

@@ -50,7 +50,7 @@
 
 | ตัวแปร | บังคับ | ขอบเขต | Local | Preview | Production | หมายเหตุ |
 |---|---|---|---|---|---|---|
-| `EMAIL_PROVIDER` | – | Server | `log` | `resend` | `resend` | `log` = บันทึกลง log และฐานข้อมูลอย่างเดียว ทดสอบ flow ได้โดยไม่ส่งจริง |
+| `EMAIL_PROVIDER` | – | Server | `log` | `resend` | `resend` | `log` = บันทึกลง log และฐานข้อมูลอย่างเดียว ทดสอบ flow ได้โดยไม่ส่งจริง — ระหว่างนี้หน้าเชิญผู้ใช้จะแสดงลิงก์เชิญให้ผู้ดูแลคัดลอกไปส่งเอง และหน้าสมัครบอกว่าเข้าสู่ระบบได้ทันที |
 | `EMAIL_API_KEY` | – | Server (**ความลับ**) | – | คีย์ staging | คีย์ production | แยกคนละใบต่อ environment |
 | `EMAIL_FROM` | – | Server | อะไรก็ได้ | `TNN Meeting <no-reply@notify.example.com>` | เหมือน staging | ต้องเป็นโดเมนที่ verify กับผู้ให้บริการแล้ว |
 | `EMAIL_REPLY_TO` | – | Server | – | อีเมลที่มีคนดูแล | อีเมลที่มีคนดูแล | ห้ามใช้อีเมลที่ไม่มีใครอ่าน |
@@ -63,6 +63,7 @@
 | `LINE_PROVIDER` | – | Server | `log` | `log` หรือ `messaging-api` | `messaging-api` | |
 | `LINE_CHANNEL_SECRET` | – | Server (**ความลับ**) | – | ของ channel ทดสอบ | ของ channel จริง | ใช้ตรวจลายเซ็น webhook |
 | `LINE_CHANNEL_ACCESS_TOKEN` | – | Server (**ความลับ**) | – | ของ channel ทดสอบ | ของ channel จริง | ใช้ส่งข้อความ |
+| `LINE_BOT_BASIC_ID` | – | Server | – | ของ channel ทดสอบ | เช่น `@123abcde` | ไม่ใช่ความลับ — แสดงปุ่ม "เพิ่มเพื่อน LINE" ในหน้าโปรไฟล์ หาได้ใน LINE Official Account Manager มุมซ้ายบน |
 
 > LINE Messaging API ให้ webhook ได้ URL เดียวต่อ channel
 > ถ้าต้องการทดสอบบน staging ให้สร้าง channel แยกอีกใบ ไม่ใช้ channel เดียวกับ production

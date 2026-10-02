@@ -41,6 +41,9 @@ export function UserManager({
   const router = useRouter();
   const toast = useToast();
   const [inviteOpen, setInviteOpen] = useState(false);
+  // ลิงก์เชิญที่ต้องส่งเอง (เฉพาะตอนระบบยังไม่ได้เชื่อมอีเมล)
+  const [inviteLink, setInviteLink] = useState<{ link: string; name: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [roles, setRoles] = useState<RoleCode[]>([]);
   const [status, setStatus] = useState('active');
@@ -156,7 +159,7 @@ export function UserManager({
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         title="เชิญผู้ใช้เข้าระบบ"
-        description="ระบบจะส่งอีเมลคำเชิญให้ผู้ใช้ตั้งรหัสผ่านเอง (ลิงก์มีอายุ 7 วัน)"
+        description="ผู้ใช้จะได้ลิงก์สำหรับตั้งรหัสผ่านเอง (ลิงก์มีอายุ 7 วัน ใช้ได้ครั้งเดียว)"
         size="sm"
       >
         <form
@@ -175,9 +178,15 @@ export function UserManager({
                 roleCode: String(form.get('roleCode') ?? 'employee'),
               }),
             })
-              .then(() => {
-                toast.show('ส่งคำเชิญแล้ว', 'success');
+              .then((res) => {
+                const { inviteLink: link } = res as { inviteLink: string | null };
                 setInviteOpen(false);
+                if (link) {
+                  setLinkCopied(false);
+                  setInviteLink({ link, name: String(form.get('fullName') ?? '') });
+                } else {
+                  toast.show('ส่งคำเชิญแล้ว', 'success');
+                }
                 router.refresh();
               })
               .catch((error) => {
@@ -213,6 +222,34 @@ export function UserManager({
           </Button>
         </form>
       </Overlay>
+
+      {inviteLink && (
+        <Overlay
+          open
+          onClose={() => setInviteLink(null)}
+          title="สร้างบัญชีแล้ว — ส่งลิงก์นี้ให้ผู้ใช้"
+          description={`ระบบยังไม่ได้เชื่อมอีเมล จึงส่งคำเชิญให้เองไม่ได้ กดคัดลอกแล้วส่งให้ ${inviteLink.name} ทาง LINE หรือช่องทางอื่น`}
+          size="sm"
+        >
+          <div className="flex flex-col gap-3">
+            <Input readOnly value={inviteLink.link} aria-label="ลิงก์เชิญ" onFocus={(event) => event.currentTarget.select()} />
+            <Button
+              onClick={() => {
+                void navigator.clipboard
+                  ?.writeText(inviteLink.link)
+                  .then(() => setLinkCopied(true))
+                  .catch(() => toast.show('คัดลอกไม่ได้ — กดค้างที่ลิงก์แล้วเลือกคัดลอกแทน', 'error'));
+              }}
+            >
+              {linkCopied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
+            </Button>
+            <p className="text-xs text-ink-600">
+              ผู้ใช้เปิดลิงก์ → ตั้งรหัสผ่าน → เข้าสู่ระบบด้วยอีเมลและรหัสผ่านนั้น · ลิงก์ใช้ได้ครั้งเดียวภายใน 7 วัน
+              อย่าส่งในกลุ่มที่มีคนอื่น
+            </p>
+          </div>
+        </Overlay>
+      )}
 
       {editing && (
         <Overlay

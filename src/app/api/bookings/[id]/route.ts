@@ -16,7 +16,6 @@ export const GET = withApi(async (_request: Request, context: { params: Promise<
   if (!detail) throw new NotFoundError(t('error.notFound'));
 
   const isOwner = detail.bookerProfileId === actor.profileId;
-  const isManager = actor.permissions.includes('booking:manage_all');
   const editableStatus = !['cancelled', 'rejected', 'completed'].includes(detail.status);
 
   return apiOk({
@@ -29,8 +28,9 @@ export const GET = withApi(async (_request: Request, context: { params: Promise<
       approvals: detail.approvals.map((a) => ({ ...a, decidedAt: a.decidedAt?.toISOString() ?? null })),
       permissions: {
         isOwner,
-        canEdit: editableStatus && (isOwner || isManager),
-        canCancel: editableStatus && (isOwner || isManager),
+        // แก้ไข/ยกเลิกได้เฉพาะเจ้าของ — ตรงกับ assertOwner ในชั้นบริการ
+        canEdit: editableStatus && isOwner,
+        canCancel: editableStatus && isOwner,
         canCheckIn:
           detail.status === 'confirmed' &&
           (isOwner || actor.permissions.includes('booking:check_in_any')) &&

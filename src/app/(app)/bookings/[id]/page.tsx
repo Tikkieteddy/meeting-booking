@@ -23,7 +23,6 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   if (!detail) notFound();
 
   const isOwner = detail.bookerProfileId === user.id;
-  const isManager = user.permissions.includes('booking:manage_all');
   const editable = !['cancelled', 'rejected', 'completed'].includes(detail.status);
   // ผู้จองแก้เวลาเตือนของตัวเองได้จนกว่าประชุมจะเริ่ม — การจองเก่าที่ไม่ได้เลือกไว้ แสดงค่าตั้งส่วนตัว
   const canEditReminders = isOwner && ['confirmed', 'pending'].includes(detail.status) && detail.startsAt.getTime() > Date.now();
@@ -89,8 +88,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       <BookingActions
         bookingId={detail.id}
         seriesId={detail.seriesId}
-        canEdit={editable && (isOwner || isManager)}
-        canCancel={editable && (isOwner || isManager)}
+        canEdit={editable && isOwner}
+        canCancel={editable && isOwner}
         canCheckIn={
           detail.status === 'confirmed' &&
           (isOwner || user.permissions.includes('booking:check_in_any')) &&

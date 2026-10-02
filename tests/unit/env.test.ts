@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appUrlFrom } from '@/lib/env';
+import { appUrlFrom, lineAddFriend } from '@/lib/env';
 
 /**
  * ลิงก์ใน LINE/อีเมลเคยพาไป http://localhost:3000 บน production เพราะไม่ได้ตั้ง NEXT_PUBLIC_APP_URL
@@ -23,5 +23,18 @@ describe('ที่อยู่เว็บสำหรับประกอบ�
 
   it('ไม่มีทั้งสองค่า → ปล่อยให้ schema ใช้ค่าเริ่มต้นสำหรับเครื่องนักพัฒนา', () => {
     expect(appUrlFrom({})).toBeUndefined();
+  });
+});
+
+describe('ปุ่มเพิ่มเพื่อน LINE จาก LINE_BOT_BASIC_ID', () => {
+  it('ใส่ @ หรือไม่ใส่ก็ได้ และได้ลิงก์มาตรฐานของ LINE', () => {
+    expect(lineAddFriend('@123abcde')).toEqual({ id: '@123abcde', url: 'https://line.me/R/ti/p/%40123abcde' });
+    expect(lineAddFriend(' 123abcde ')).toEqual({ id: '@123abcde', url: 'https://line.me/R/ti/p/%40123abcde' });
+  });
+
+  it('ไม่ได้ตั้งหรือรูปแบบผิด → ไม่แสดงปุ่ม (ไม่ทำให้หน้าพัง)', () => {
+    expect(lineAddFriend(undefined)).toBeNull();
+    expect(lineAddFriend('')).toBeNull();
+    expect(lineAddFriend('https://evil.example/@x')).toBeNull();
   });
 });

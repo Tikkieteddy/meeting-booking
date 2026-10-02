@@ -51,6 +51,7 @@ export function BookingDetailDrawer({
   const [error, setError] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [cancelScope, setCancelScope] = useState<'this' | 'series'>('this');
   const [busy, setBusy] = useState(false);
   // เปิดฟอร์มแก้ไขแทนที่หน้าต่างรายละเอียด (ไม่ซ้อนสองชั้น ปิดด้วย Esc ได้ทีละอัน)
@@ -98,6 +99,11 @@ export function BookingDetailDrawer({
 
   const cancel = async () => {
     if (!bookingId) return;
+    // ต้องใส่เหตุผลทุกครั้ง — เหตุผลถูกส่งไปบอกผู้เข้าร่วมด้วย
+    if (!cancelReason.trim()) {
+      setReasonError(t('booking.cancelReasonRequired'));
+      return;
+    }
     setBusy(true);
     try {
       await apiFetch(`/api/bookings/${bookingId}/cancel`, {
@@ -255,12 +261,17 @@ export function BookingDetailDrawer({
         onClose={() => setConfirmCancel(false)}
       >
         <div className="flex flex-col gap-3">
-          <Field label={t('booking.cancelReason')} htmlFor="cancel-reason">
+          <Field label={t('booking.cancelReason')} htmlFor="cancel-reason" required error={reasonError ?? undefined}>
             <Textarea
               id="cancel-reason"
               value={cancelReason}
-              onChange={(event) => setCancelReason(event.target.value)}
+              onChange={(event) => {
+                setCancelReason(event.target.value);
+                setReasonError(null);
+              }}
               maxLength={300}
+              required
+              aria-invalid={Boolean(reasonError)}
             />
           </Field>
           {detail?.seriesId && (

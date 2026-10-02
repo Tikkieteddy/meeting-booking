@@ -841,12 +841,12 @@ export type UpdateBookingInput = Partial<
 };
 
 /**
- * แก้ไขหรือยกเลิกได้เฉพาะการจองของตัวเอง (ผู้ใช้ขอ 1 ต.ค. 2569)
- * RLS ยอมให้ผู้อนุมัติของห้องแก้แถวได้ด้วย (ใช้ตอนอนุมัติ) จึงต้องกันซ้ำที่ชั้นนี้
- * ผู้ที่มีสิทธิ์จัดการการจองทั้งหมด (ผู้ดูแลระบบ) ยังทำแทนได้ สำหรับกรณีฉุกเฉิน
+ * แก้ไข ย้าย หรือยกเลิกได้เฉพาะการจองที่ตัวเองสร้าง — รวมถึงผู้ดูแลระบบด้วย (ผู้ใช้ยืนยัน 2 ต.ค. 2569)
+ * RLS ยอมให้ผู้อนุมัติของห้องแก้แถวได้ (ใช้ตอนอนุมัติ) จึงต้องกันซ้ำที่ชั้นนี้
+ * ถ้าต้องให้ผู้ดูแลจัดการแทนได้ภายหลัง (เช่น พนักงานลาออก) ให้เพิ่มเงื่อนไข booking:manage_all กลับที่นี่
  */
-function assertOwnerOrManager(actor: Actor, booking: BookingRecord) {
-  if (booking.bookerProfileId !== actor.profileId && !actor.permissions.includes('booking:manage_all')) {
+function assertOwner(actor: Actor, booking: BookingRecord) {
+  if (booking.bookerProfileId !== actor.profileId) {
     throw new ForbiddenError(t('booking.notOwner'));
   }
 }
@@ -861,7 +861,7 @@ export async function updateBooking(
   return withTx(ctx, async (sql) => {
     const before = await getBookingRecord(sql, bookingId);
     if (!before) throw new NotFoundError(t('error.notFound'));
-    assertOwnerOrManager(actor, before);
+    assertOwner(actor, before);
     if (before.version !== input.expectedVersion) throw new ConflictError(t('error.versionConflict'));
     if (before.status === 'cancelled' || before.status === 'rejected') {
       throw new DomainError('การจองนี้ถูกยกเลิกหรือปฏิเสธไปแล้ว แก้ไขไม่ได้', 'invalid_state');
@@ -1061,8 +1061,14 @@ export async function cancelBooking(
   return withTx(ctx, async (sql) => {
     const booking = await getBookingRecord(sql, bookingId);
     if (!booking) throw new NotFoundError(t('error.notFound'));
-    assertOwnerOrManager(actor, booking);
+    assertOwner(actor, booking);
     if (booking.status === 'cancelled') return { cancelled: 0 };
+    // ต้องระบุเหตุผลทุกครั้ง (ผู้ใช้ขอ 2 ต.ค. 2569) — เหตุผลถูกส่งถึงผู้เข้าร่วมและเก็บในประวัติ
+    if (!reason?.trim()) {
+      throw new ValidationError(t('booking.cancelReasonRequired'), [
+        { code: 'cancel_reason_required', field: 'general', message: t('booking.cancelReasonRequired') },
+      ]);
+    }
 
     const room = await loadRoomOrThrow(sql, booking.roomId);
     const isAdmin = actor.permissions.includes('booking:manage_all');

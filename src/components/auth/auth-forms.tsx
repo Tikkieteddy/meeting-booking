@@ -117,18 +117,18 @@ export function LoginForm({ rememberDays }: { rememberDays: number }) {
 }
 
 export function RegisterForm() {
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
   const { loading, formError, fieldErrors, run } = useFormSubmit<Record<string, string>>(async (values) => {
-    await apiFetch('/api/auth/register', { method: 'POST', body: JSON.stringify(values) });
-    setDone(true);
+    const res = await apiFetch<{ message: string }>('/api/auth/register', { method: 'POST', body: JSON.stringify(values) });
+    setDone(res.message || t('auth.registeredNoEmail'));
   });
 
   if (done) {
     return (
       <div className="flex flex-col gap-4">
-        <FormBanner tone="success">{t('auth.verifyEmailSent')}</FormBanner>
-        <Link href="/login" className="text-sm text-brand-700 underline-offset-2 hover:underline">
-          {t('auth.backToLogin')}
+        <FormBanner tone="success">{done}</FormBanner>
+        <Link href="/login" className="text-sm font-semibold text-brand-700 underline-offset-2 hover:underline">
+          {t('auth.goToLogin')}
         </Link>
       </div>
     );

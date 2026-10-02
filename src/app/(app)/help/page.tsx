@@ -7,8 +7,10 @@ export const metadata = { title: t('nav.help') };
 const FAQ = [
   { q: 'help.faq.book.q', a: 'help.faq.book.a' },
   { q: 'help.faq.edit.q', a: 'help.faq.edit.a' },
-  { q: 'help.faq.approval.q', a: 'help.faq.approval.a' },
   { q: 'help.faq.line.q', a: 'help.faq.line.a' },
+  { q: 'help.faq.remind.q', a: 'help.faq.remind.a' },
+  { q: 'help.faq.account.q', a: 'help.faq.account.a' },
+  // ข้อผู้อนุมัติซ่อนไว้ — องค์กรยังไม่ใช้ขั้นตอนอนุมัติ (ผู้ใช้แจ้ง 1 ต.ค. 2569)
 ] as const;
 
 export default function HelpPage() {

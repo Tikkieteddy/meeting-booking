@@ -8,7 +8,7 @@ import { STORAGE_STATE, bookingDateISO, openCalendar } from './helpers';
  */
 test.use({ storageState: STORAGE_STATE.employee });
 
-// ห้องย่อย 2 ช่วง 12:00–13:00 และ 15:00–15:30 — สเปกอื่นใช้ห้องนี้ที่ 09:00, 11:00, 14:00, 16:00 (ห้ามชนกัน)
+// ห้องย่อย 2 ช่วง 12:00–13:00 และ 15:00–16:00 — สเปกอื่นใช้ห้องนี้ที่ 09:00, 11:00, 14:00, 16:00 (ห้ามชนกัน)
 
 async function createBooking(page: Page, title: string, startTime: string, endTime: string) {
   const rooms = await (await page.request.get('/api/rooms')).json();
@@ -95,6 +95,8 @@ test('หน้าต่างฟอร์มจองอยู่ในกร�
 });
 
 test('แก้ไขหรือยกเลิกการจองของคนอื่นไม่ได้ แม้เป็นผู้อนุมัติ', async ({ page, browser }) => {
+  // ตรวจสิทธิ์ที่ API ไม่ขึ้นกับขนาดจอ — รันครั้งเดียวพอ (ระบบจำกัดการจองต่อบัญชี 30 ครั้ง/5 นาที)
+  test.skip(test.info().project.name !== 'desktop', 'ไม่ขึ้นกับขนาดจอ');
   const booking = await createBooking(page, `ของพนักงาน ${Date.now()}`, '12:30', '13:00');
   const other = await browser.newContext({ storageState: STORAGE_STATE.approver });
   try {
@@ -105,4 +107,29 @@ test('แก้ไขหรือยกเลิกการจองของ�
   } finally {
     await other.close();
   }
+});
+
+test('ยกเลิกการจองต้องใส่เหตุผล และเลือกวันย้อนหลังไม่ได้', async ({ page }) => {
+  // ทดสอบบนคอมและมือถือพอ (ระบบจำกัดการจองต่อบัญชี 30 ครั้ง/5 นาที)
+  test.skip(!['desktop', 'mobile'].includes(test.info().project.name), 'ครอบคลุมด้วยคอมและมือถือแล้ว');
+  const title = `ยกเลิกต้องมีเหตุผล ${Date.now()}`;
+  const booking = await createBooking(page, title, '15:30', '16:00');
+  await page.goto(`/bookings/${booking.id}`);
+
+  // ช่องวันที่ในฟอร์มแก้ไขเริ่มได้ตั้งแต่วันนี้
+  await page.getByRole('button', { name: 'แก้ไข', exact: true }).click();
+  const edit = page.getByRole('dialog', { name: 'แก้ไขการจอง' });
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
+  await expect(edit.getByLabel('วันที่', { exact: true })).toHaveAttribute('min', today);
+  await edit.getByRole('button', { name: 'ยกเลิก', exact: true }).click();
+
+  await page.getByRole('button', { name: /ยกเลิกการจอง/ }).click();
+  const confirm = page.getByRole('dialog', { name: 'ยืนยันยกเลิกการจองนี้' });
+  await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
+  await expect(confirm.getByText('กรุณาระบุเหตุผลการยกเลิก')).toBeVisible();
+  await expect(confirm).toBeVisible();
+
+  await confirm.getByLabel('เหตุผลการยกเลิก').fill('ประชุมเลื่อน');
+  await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
+  await expect(page.getByText('ยกเลิกการจองแล้ว')).toBeVisible();
 });

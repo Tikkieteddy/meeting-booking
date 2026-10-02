@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/toast';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
 import { timeSlots, durationLabel } from '@/lib/domain/booking-rules';
-import { formatThaiDate, hhmmToMinutes, minutesToHhmm } from '@/lib/util/time';
+import { formatThaiDate, hhmmToMinutes, minutesToHhmm, toDateISO } from '@/lib/util/time';
 import type { RecurrenceRule } from '@/lib/domain/recurrence';
 import { RecurrencePicker } from './recurrence-picker';
 
@@ -355,6 +355,8 @@ export function BookingForm({ open, onClose, rooms, amenities, preset, canOverri
               value={dateISO}
               onChange={(event) => setDateISO(event.target.value)}
               required
+              // จองหรือย้ายไปวันข้างหน้าได้ ย้อนหลังไม่ได้ (ระบบตรวจซ้ำที่ฝั่ง server)
+              min={toDateISO(new Date())}
               disabled={scope === 'series'}
             />
           </Field>
