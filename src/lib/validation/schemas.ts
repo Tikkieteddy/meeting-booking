@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MAX_REMINDERS, MAX_REMINDER_MINUTES, normalizeReminderLeads } from '@/lib/domain/reminders';
+import { joinFullName } from '@/lib/domain/person-name';
 
 /**
  * Schema validation ที่ใช้ร่วมกันทั้งฝั่ง API และฟอร์ม (บรีฟข้อ 15)
@@ -27,6 +28,19 @@ const safeText = (max: number, label: string, min = 0, minMessage?: string) =>
     .max(max, `${label}ยาวเกิน ${max} ตัวอักษร`)
     .refine((v) => !/<\s*\/?\s*(script|iframe|object|embed|style)\b/i.test(v), `${label}มีอักขระที่ไม่อนุญาต`);
 
+/**
+ * ชื่อ/นามสกุลแยกช่อง (ผู้ใช้ขอ 2 ต.ค. 2569) — ชื่อต้นห้ามเว้นวรรค เพื่อให้แยกกลับจาก full_name ได้แน่นอน
+ * (ชื่อกลางให้ใส่ช่องนามสกุล) ดู src/lib/domain/person-name.ts
+ */
+const nameFields = {
+  firstName: safeText(60, 'ชื่อ', 1, 'กรุณากรอกชื่อ').refine((v) => !/\s/.test(v), 'ชื่อห้ามมีเว้นวรรค (ชื่อกลางให้ใส่ในช่องนามสกุล)'),
+  lastName: safeText(60, 'นามสกุล', 1, 'กรุณากรอกนามสกุล'),
+};
+const withFullName = <T extends { firstName: string; lastName: string }>(v: T) => ({
+  ...v,
+  fullName: joinFullName(v.firstName, v.lastName),
+});
+
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'กรุณากรอกรหัสผ่าน'),
@@ -37,7 +51,7 @@ export const loginSchema = z.object({
 export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  fullName: safeText(120, 'ชื่อ-นามสกุล', 2, 'กรุณากรอกชื่อ-นามสกุล'),
+  ...nameFields,
   department: safeText(120, 'แผนก').optional().nullable(),
   phone: z
     .string()
@@ -46,7 +60,8 @@ export const registerSchema = z.object({
     .regex(/^[0-9+\-\s()]*$/, 'เบอร์โทรศัพท์ควรมีเฉพาะตัวเลขและเครื่องหมาย + - ( )')
     .optional()
     .nullable(),
-});
+})
+  .transform(withFullName);
 
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 
@@ -243,21 +258,28 @@ export const notificationPreferenceSchema = z.object({
   reminderLeads: reminderLeadsSchema,
 });
 
-export const profileSchema = z.object({
-  fullName: safeText(120, 'ชื่อ-นามสกุล', 2, 'กรุณากรอกชื่อ-นามสกุล'),
-  phone: z.string().trim().max(30).optional().nullable(),
-  department: safeText(120, 'แผนก').optional().nullable(),
-  jobTitle: safeText(120, 'ตำแหน่ง').optional().nullable(),
-  locale: z.enum(['th', 'en']).default('th'),
-  timezone: z.string().max(64).default('Asia/Bangkok'),
-});
+/**
+ * แก้โปรไฟล์ตัวเอง — แก้ชื่อได้ทุกคน แต่ "แผนก" ให้ผู้ดูแลระบบแก้เท่านั้น (ผู้ใช้ขอ 2 ต.ค. 2569)
+ * และไม่มีช่องอีเมลโดยเจตนา (อีเมลห้ามแก้เด็ดขาด — ฐานข้อมูลก็กันซ้ำ ดู migration 013)
+ */
+export const profileSchema = z
+  .object({
+    ...nameFields,
+    phone: z.string().trim().max(30).optional().nullable(),
+    jobTitle: safeText(120, 'ตำแหน่ง').optional().nullable(),
+    locale: z.enum(['th', 'en']).default('th'),
+    timezone: z.string().max(64).default('Asia/Bangkok'),
+  })
+  .transform(withFullName);
 
-export const inviteUserSchema = z.object({
-  email: emailSchema,
-  fullName: safeText(120, 'ชื่อ-นามสกุล', 2, 'กรุณากรอกชื่อ-นามสกุล'),
-  department: safeText(120, 'แผนก').optional().nullable(),
-  roleCode: z.enum(['super_admin', 'room_admin', 'approver', 'employee', 'viewer']),
-});
+export const inviteUserSchema = z
+  .object({
+    email: emailSchema,
+    ...nameFields,
+    department: safeText(120, 'แผนก').optional().nullable(),
+    roleCode: z.enum(['super_admin', 'room_admin', 'approver', 'employee', 'viewer']),
+  })
+  .transform(withFullName);
 
 /** เปิด/ปิดการใช้งานบทบาท (หน้าผู้ดูแลระบบ) */
 export const roleToggleSchema = z.object({

@@ -7,6 +7,7 @@ import { ReminderEditor } from '@/components/ui/reminder-editor';
 import { useToast } from '@/components/ui/toast';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
+import { splitFullName } from '@/lib/domain/person-name';
 
 type Props = {
   profile: {
@@ -27,6 +28,7 @@ type Props = {
 
 /** หน้าโปรไฟล์: ข้อมูลส่วนตัว รหัสผ่าน การแจ้งเตือน และการเชื่อม LINE */
 export function ProfileForm({ profile, preferences, lineLink, lineAddFriend }: Props) {
+  const nameParts = splitFullName(profile.fullName);
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<'profile' | 'password' | 'notify'>('profile');
@@ -124,9 +126,9 @@ export function ProfileForm({ profile, preferences, lineLink, lineAddFriend }: P
               await apiFetch('/api/profile', {
                 method: 'PUT',
                 body: JSON.stringify({
-                  fullName: String(form.get('fullName') ?? ''),
+                  firstName: String(form.get('firstName') ?? ''),
+                  lastName: String(form.get('lastName') ?? ''),
                   phone: String(form.get('phone') ?? '') || null,
-                  department: String(form.get('department') ?? '') || null,
                   jobTitle: String(form.get('jobTitle') ?? '') || null,
                   locale: String(form.get('locale') ?? 'th'),
                   timezone: String(form.get('timezone') ?? 'Asia/Bangkok'),
@@ -136,18 +138,24 @@ export function ProfileForm({ profile, preferences, lineLink, lineAddFriend }: P
           }}
           noValidate
         >
-          <Field label={t('auth.email')} htmlFor="p-email" hint="อีเมลเปลี่ยนไม่ได้ ติดต่อผู้ดูแลระบบหากต้องแก้">
+          <Field label={t('auth.email')} htmlFor="p-email" hint={t('profile.emailLocked')}>
             <Input id="p-email" value={profile.email} disabled />
           </Field>
           <Field label="สิทธิ์ในระบบ" htmlFor="p-role">
             <Input id="p-role" value={profile.roleLabel} disabled />
           </Field>
-          <Field label={t('auth.fullName')} htmlFor="p-name" required error={fieldErrors.fullName}>
-            <Input id="p-name" name="fullName" defaultValue={profile.fullName} required />
-          </Field>
+          {/* แก้ชื่อตัวเองได้ทุกบัญชี แยกชื่อ/นามสกุล (ผู้ใช้ขอ 2 ต.ค. 2569) */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t('auth.department')} htmlFor="p-dept" error={fieldErrors.department}>
-              <Input id="p-dept" name="department" defaultValue={profile.department ?? ''} />
+            <Field label={t('auth.firstName')} htmlFor="p-first" required error={fieldErrors.firstName} hint={t('auth.firstNameHint')}>
+              <Input id="p-first" name="firstName" defaultValue={nameParts.firstName} required autoComplete="given-name" />
+            </Field>
+            <Field label={t('auth.lastName')} htmlFor="p-last" required error={fieldErrors.lastName}>
+              <Input id="p-last" name="lastName" defaultValue={nameParts.lastName} required autoComplete="family-name" />
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t('auth.department')} htmlFor="p-dept" hint={t('profile.departmentByAdmin')}>
+              <Input id="p-dept" value={profile.department ?? '-'} disabled />
             </Field>
             <Field label="ตำแหน่ง" htmlFor="p-job" error={fieldErrors.jobTitle}>
               <Input id="p-job" name="jobTitle" defaultValue={profile.jobTitle ?? ''} />

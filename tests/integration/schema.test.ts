@@ -241,3 +241,17 @@ describe('เวลาเตือนแยกตามการจอง (migra
     }
   });
 });
+
+describe('อีเมลของบัญชีแก้ไขไม่ได้ (migration 013)', () => {
+  it('ฐานข้อมูลปฏิเสธการเปลี่ยนอีเมล แม้ด้วยสิทธิ์ระบบ แต่แก้ชื่อและแผนกได้ตามปกติ', async () => {
+    const id = world.users.employee2.id;
+    await expect(
+      withServiceTx((sql) => sql.query('UPDATE profiles SET email = $2 WHERE id = $1', [id, 'hijack@example.com'])),
+    ).rejects.toThrow(/profiles_email_locked|อีเมลของบัญชีแก้ไขไม่ได้/);
+
+    // เขียนค่าเดิมซ้ำไม่นับเป็นการเปลี่ยน
+    await expect(
+      withServiceTx((sql) => sql.query('UPDATE profiles SET email = email, department = $2 WHERE id = $1', [id, 'ฝ่ายทดสอบ'])),
+    ).resolves.toBeDefined();
+  });
+});

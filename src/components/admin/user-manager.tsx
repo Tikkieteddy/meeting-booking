@@ -47,6 +47,7 @@ export function UserManager({
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [roles, setRoles] = useState<RoleCode[]>([]);
   const [status, setStatus] = useState('active');
+  const [department, setDepartment] = useState('');
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [query, setQuery] = useState('');
@@ -61,6 +62,7 @@ export function UserManager({
     setEditing(user);
     setRoles(user.roles.filter((r): r is RoleCode => ALL_ROLES.includes(r as RoleCode)));
     setStatus(user.status);
+    setDepartment(user.department ?? '');
   };
 
   const saveRoles = async () => {
@@ -72,9 +74,10 @@ export function UserManager({
         body: JSON.stringify({
           roles: roles.map((roleCode) => ({ roleCode, scopeType: 'organization', scopeId: null })),
           status,
+          department,
         }),
       });
-      toast.show('บันทึกสิทธิ์แล้ว', 'success');
+      toast.show('บันทึกแล้ว', 'success');
       setEditing(null);
       router.refresh();
     } catch (error) {
@@ -145,7 +148,7 @@ export function UserManager({
                 <td className="px-3 py-2 text-end">
                   {canManageRoles && (
                     <Button size="sm" variant="secondary" onClick={() => openEditor(user)}>
-                      แก้สิทธิ์
+                      {t('common.edit')}
                     </Button>
                   )}
                 </td>
@@ -173,7 +176,8 @@ export function UserManager({
               method: 'POST',
               body: JSON.stringify({
                 email: String(form.get('email') ?? ''),
-                fullName: String(form.get('fullName') ?? ''),
+                firstName: String(form.get('firstName') ?? ''),
+                lastName: String(form.get('lastName') ?? ''),
                 department: String(form.get('department') ?? '') || null,
                 roleCode: String(form.get('roleCode') ?? 'employee'),
               }),
@@ -183,7 +187,7 @@ export function UserManager({
                 setInviteOpen(false);
                 if (link) {
                   setLinkCopied(false);
-                  setInviteLink({ link, name: String(form.get('fullName') ?? '') });
+                  setInviteLink({ link, name: String(form.get('firstName') ?? '') });
                 } else {
                   toast.show('ส่งคำเชิญแล้ว', 'success');
                 }
@@ -199,9 +203,14 @@ export function UserManager({
           }}
           noValidate
         >
-          <Field label={t('auth.fullName')} htmlFor="i-name" required error={fieldErrors.fullName}>
-            <Input id="i-name" name="fullName" required />
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t('auth.firstName')} htmlFor="i-first" required error={fieldErrors.firstName} hint={t('auth.firstNameHint')}>
+              <Input id="i-first" name="firstName" required />
+            </Field>
+            <Field label={t('auth.lastName')} htmlFor="i-last" required error={fieldErrors.lastName}>
+              <Input id="i-last" name="lastName" required />
+            </Field>
+          </div>
           <Field label={t('auth.email')} htmlFor="i-email" required error={fieldErrors.email}>
             <Input id="i-email" name="email" type="email" required />
           </Field>
@@ -255,7 +264,7 @@ export function UserManager({
         <Overlay
           open
           onClose={() => setEditing(null)}
-          title={`สิทธิ์ของ ${editing.fullName}`}
+          title={`แก้ไข ${editing.fullName}`}
           size="sm"
           footer={
             <div className="flex justify-end gap-2">
@@ -269,6 +278,12 @@ export function UserManager({
           }
         >
           <div className="flex flex-col gap-4">
+            <Field label={t('auth.email')} htmlFor="u-email" hint={t('profile.emailLocked')}>
+              <Input id="u-email" value={editing.email} disabled />
+            </Field>
+            <Field label={t('auth.department')} htmlFor="u-dept">
+              <Input id="u-dept" value={department} onChange={(event) => setDepartment(event.target.value)} maxLength={120} />
+            </Field>
             <fieldset className="flex flex-col gap-2">
               <legend className="text-sm font-medium text-ink-700">เลือกสิทธิ์ (เลือกได้หลายอย่าง)</legend>
               {/*

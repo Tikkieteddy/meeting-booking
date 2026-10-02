@@ -26,6 +26,15 @@ const bodySchema = z.object({
     )
     .max(20),
   status: z.enum(["invited", "active", "suspended", "deactivated"]).optional(),
+  // ผู้ดูแลระบบแก้แผนกของทุกคนได้ (ผู้ใช้ขอ 2 ต.ค. 2569) — ไม่มีช่องอีเมลโดยเจตนา (ห้ามแก้เด็ดขาด)
+  department: z
+    .string()
+    .trim()
+    .max(120, "แผนกยาวเกิน 120 ตัวอักษร")
+    .refine((v) => !/<\s*\/?\s*(script|iframe|object|embed|style)\b/i.test(v), "แผนกมีอักขระที่ไม่อนุญาต")
+    .transform((v) => v || null)
+    .optional()
+    .nullable(),
 });
 
 export const PUT = withApi(
@@ -34,8 +43,35 @@ export const PUT = withApi(
     const { id } = await context.params;
     const { actor, ctx } = await currentActor();
     const body = bodySchema.parse(await request.json());
+    // แก้แผนกต้องมีสิทธิ์จัดการผู้ใช้ด้วย (ตรวจที่ API — RLS ของ profiles ก็บังคับ user:manage อีกชั้น)
+    if (body.department !== undefined) await requirePermission("user:manage");
 
     await withTx(ctx, async (sql) => {
+      if (body.department !== undefined) {
+        // เขียนในสิทธิ์ของผู้ดูแลเอง (ไม่ยกระดับ) — RLS profiles_update_self ยอมเฉพาะผู้มี user:manage
+        const before = await sql.query<{ department: string | null }>(
+          "SELECT department FROM profiles WHERE id = $1",
+          [id],
+        );
+        const res = await sql.query("UPDATE profiles SET department = $2 WHERE id = $1", [
+          id,
+          body.department,
+        ]);
+        if (res.rowCount === 0) {
+          throw new DomainError("ไม่พบผู้ใช้หรือไม่มีสิทธิ์แก้ไข", "not_found", 404);
+        }
+        await writeAudit(sql, {
+          actorProfileId: actor.profileId,
+          actorEmail: actor.email,
+          action: "user.update_department",
+          resourceType: "profile",
+          resourceId: id,
+          before: { department: before.rows[0]?.department ?? null },
+          after: { department: body.department },
+          ipHint: actor.ipHint,
+        });
+      }
+
       // ตาราง user_roles เขียนได้เฉพาะสิทธิ์ระบบตาม RLS (migration 007)
       // เส้นทางนี้ผ่านการตรวจ role:manage แล้ว จึงยกระดับเฉพาะคำสั่งในบล็อกนี้
       // และบันทึก audit log ทุกครั้ง

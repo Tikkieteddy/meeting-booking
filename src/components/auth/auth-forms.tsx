@@ -140,7 +140,8 @@ export function RegisterForm() {
     void run({
       email: String(form.get('email') ?? ''),
       password: String(form.get('password') ?? ''),
-      fullName: String(form.get('fullName') ?? ''),
+      firstName: String(form.get('firstName') ?? ''),
+      lastName: String(form.get('lastName') ?? ''),
       department: String(form.get('department') ?? ''),
     });
   };
@@ -152,9 +153,15 @@ export function RegisterForm() {
         <p className="mt-1 text-sm text-ink-500">{t('auth.useEmailToRegister')}</p>
       </div>
       {formError && <FormBanner tone="error">{formError}</FormBanner>}
-      <Field label={t('auth.fullName')} htmlFor="fullName" required error={fieldErrors.fullName}>
-        <Input id="fullName" name="fullName" required autoComplete="name" />
-      </Field>
+      {/* ชื่อ/นามสกุลแยกช่อง (ผู้ใช้ขอ 2 ต.ค. 2569) — ระบบรวมเป็นชื่อเต็มให้เอง */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t('auth.firstName')} htmlFor="firstName" required error={fieldErrors.firstName} hint={t('auth.firstNameHint')}>
+          <Input id="firstName" name="firstName" required autoComplete="given-name" />
+        </Field>
+        <Field label={t('auth.lastName')} htmlFor="lastName" required error={fieldErrors.lastName}>
+          <Input id="lastName" name="lastName" required autoComplete="family-name" />
+        </Field>
+      </div>
       <Field label={t('auth.email')} htmlFor="email" required error={fieldErrors.email}>
         <Input id="email" name="email" type="email" required autoComplete="email" />
       </Field>
