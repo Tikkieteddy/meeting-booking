@@ -109,6 +109,11 @@ test.describe('การจองห้องประชุม', () => {
     await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
 
     await expect(page.getByText('ยกเลิกการจองแล้ว')).toBeVisible();
+
+    // บั๊กที่เคยเกิด: ปิดหน้าต่างยืนยันพร้อมหน้าต่างรายละเอียดแล้วหน้าเว็บถูกล็อกการเลื่อนค้าง
+    // (ผู้ใช้เจอเป็น "ปฏิทินรายเดือน/สัปดาห์เลื่อนลงไม่ได้")
+    await expect(detail).toBeHidden();
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
   });
 });
 

@@ -18,6 +18,26 @@ import { BodyPortal } from "./body-portal";
  * ตัวติดตามนี้จึงบันทึกเฉพาะ focus ที่เกิดนอก dialog ไว้ล่วงหน้า
  */
 let lastFocusedOutsideDialog: HTMLElement | null = null;
+
+/*
+ * ล็อกการเลื่อนหน้าหลักขณะมีหน้าต่างเปิด — นับจำนวนหน้าต่างที่เปิดอยู่ แทนการจำค่าเดิมทีละหน้าต่าง
+ *
+ * บั๊กที่เคยเกิด (ผู้ใช้เจอ 14 ต.ค. 2569 "ปฏิทินเลื่อนลงไม่ได้"): หน้าต่างยืนยันซ้อนบนหน้าต่างรายละเอียด
+ * แล้วปิดพร้อมกัน — ตัวบนจำค่าเดิมไว้เป็น "hidden" (เพราะตัวล่างล็อกไว้ก่อน) แล้วคืนค่านั้นทีหลัง
+ * หน้าเว็บจึงถูกล็อกค้าง เลื่อนไม่ได้ทั้งหน้าจนกว่าจะรีเฟรช
+ */
+let scrollLocks = 0;
+function lockBodyScroll(): () => void {
+  scrollLocks += 1;
+  if (scrollLocks === 1) document.body.style.overflow = "hidden";
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    scrollLocks = Math.max(0, scrollLocks - 1);
+    if (scrollLocks === 0) document.body.style.overflow = "";
+  };
+}
 let focusTrackerInstalled = false;
 
 function installFocusTracker() {
@@ -102,8 +122,7 @@ export function Overlay({
       ? active
       : lastFocusedOutsideDialog;
     const timer = window.setTimeout(() => focusables()[0]?.focus(), 30);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockBodyScroll();
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -139,7 +158,7 @@ export function Overlay({
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("keydown", onKeyDown, true);
-      document.body.style.overflow = prevOverflow;
+      unlockScroll();
 
       // คืน focus ให้ตัวที่เปิด dialog หลัง DOM อัปเดตเสร็จ
       // (ถ้าเรียกทันทีในจังหวะ cleanup เบราว์เซอร์อาจย้าย focus ไป body ทับอีกครั้ง)
