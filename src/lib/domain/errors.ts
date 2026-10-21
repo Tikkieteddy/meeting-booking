@@ -48,6 +48,7 @@ export const PG_ERROR = {
   uniqueViolation: '23505',
   checkViolation: '23514',
   foreignKeyViolation: '23503',
+  undefinedTable: '42P01',
 } as const;
 
 export function pgErrorCode(error: unknown): string | null {
