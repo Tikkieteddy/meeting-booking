@@ -71,6 +71,7 @@ test.describe('AC05 — ผู้ที่ยังไม่ล็อกอิ�
 
     expect((await request.get('/api/calendar?view=day&date=2026-09-16')).status()).toBe(401);
     expect((await request.get('/api/bookings')).status()).toBe(401);
+    expect((await request.post('/api/profile/calendar-feed')).status()).toBe(401);
   });
 });
 

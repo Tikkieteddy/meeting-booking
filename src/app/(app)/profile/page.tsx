@@ -5,6 +5,7 @@ import { ProfileForm } from '@/components/layout/profile-form';
 import { highestRole, ROLES } from '@/lib/rbac/permissions';
 import { t } from '@/lib/i18n';
 import { env, lineAddFriend } from '@/lib/env';
+import { getFeedStatus } from '@/lib/domain/calendar-feed';
 
 export const metadata = { title: t('nav.profile') };
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,7 @@ export default async function ProfilePage() {
     };
   });
 
+  const calendarFeed = await getFeedStatus(ctx, user.id);
   const role = highestRole(user.roles);
 
   return (
@@ -60,6 +62,7 @@ export default async function ProfilePage() {
         preferences={preferences}
         lineLink={lineLink}
         lineAddFriend={lineAddFriend(env().LINE_BOT_BASIC_ID)}
+        calendarFeed={calendarFeed}
       />
     </div>
   );

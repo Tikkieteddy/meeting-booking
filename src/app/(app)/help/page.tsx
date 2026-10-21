@@ -9,6 +9,7 @@ const FAQ = [
   { q: 'help.faq.edit.q', a: 'help.faq.edit.a' },
   { q: 'help.faq.line.q', a: 'help.faq.line.a' },
   { q: 'help.faq.remind.q', a: 'help.faq.remind.a' },
+  { q: 'help.faq.outlook.q', a: 'help.faq.outlook.a' },
   { q: 'help.faq.account.q', a: 'help.faq.account.a' },
   // ข้อผู้อนุมัติซ่อนไว้ — องค์กรยังไม่ใช้ขั้นตอนอนุมัติ (ผู้ใช้แจ้ง 1 ต.ค. 2569)
 ] as const;

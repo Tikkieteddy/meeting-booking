@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast';
 import { ApiClientError, apiFetch } from '@/lib/client/api';
 import { t } from '@/lib/i18n';
 import { splitFullName } from '@/lib/domain/person-name';
+import { CalendarFeedCard, type FeedStatus } from './calendar-feed-card';
 
 type Props = {
   profile: {
@@ -24,10 +25,11 @@ type Props = {
   lineLink: { status: string; linkedAt: string | null } | null;
   /** ปุ่มเพิ่มเพื่อนบัญชี LINE ทางการ (ตั้ง LINE_BOT_BASIC_ID ใน Vercel) — null = ยังไม่ได้ตั้ง */
   lineAddFriend?: { id: string; url: string } | null;
+  calendarFeed: FeedStatus;
 };
 
 /** หน้าโปรไฟล์: ข้อมูลส่วนตัว รหัสผ่าน การแจ้งเตือน และการเชื่อม LINE */
-export function ProfileForm({ profile, preferences, lineLink, lineAddFriend }: Props) {
+export function ProfileForm({ profile, preferences, lineLink, lineAddFriend, calendarFeed }: Props) {
   const nameParts = splitFullName(profile.fullName);
   const router = useRouter();
   const toast = useToast();
@@ -356,6 +358,8 @@ export function ProfileForm({ profile, preferences, lineLink, lineAddFriend }: P
               </>
             )}
           </div>
+
+          <CalendarFeedCard initial={calendarFeed} />
         </div>
       )}
     </div>
