@@ -592,6 +592,42 @@ describe('คิวงานแจ้งเตือน', () => {
     expect(deliveries).toBe(first.claimed);
   });
 
+  it('การเตือนที่ค้างข้ามคืนจนเลยเวลาประชุมไปแล้ว ไม่ถูกส่งย้อนหลัง แต่ "ตอนเริ่มประชุม" ที่ช้าไม่กี่นาทียังส่ง', async () => {
+    // ตัวส่งปลุกทุก 15 นาทีเฉพาะ 07:00–21:00 — การเตือนช่วงกลางคืนจะค้างถึงเช้า
+    const { booking: old } = await createBooking(ctxFor(world, 'employee'), actorFor(world, 'employee'), baseBooking());
+    const { booking: justStarted } = await createBooking(
+      ctxFor(world, 'employee'),
+      actorFor(world, 'employee'),
+      baseBooking({ startTime: '14:00', endTime: '15:00' }),
+    );
+    const [staleJob, freshJob] = await withServiceTx(async (sql) => {
+      // จำลองเวลา: นัดแรกเริ่มไปแล้ว 8 ชั่วโมง นัดที่สองเพิ่งเริ่มไป 10 นาที
+      await sql.query(`UPDATE bookings SET starts_at = now() - interval '8 hours', ends_at = now() - interval '7 hours' WHERE id = $1`, [old.id]);
+      await sql.query(`UPDATE bookings SET starts_at = now() - interval '10 minutes', ends_at = now() + interval '50 minutes' WHERE id = $1`, [justStarted.id]);
+      const ids: string[] = [];
+      for (const [bookingId, key] of [[old.id, 'stale-reminder'], [justStarted.id, 'fresh-reminder']] as const) {
+        const res = await sql.query<{ id: string }>(
+          `INSERT INTO notification_jobs (event_type, channel, booking_id, recipient_profile_id, payload, dedupe_key, scheduled_for, next_attempt_at)
+           VALUES ('booking.reminder', 'line', $1, $2, '{"subject":"s","text":"t"}'::jsonb, $3, now() - interval '1 minute', now() - interval '1 minute')
+           RETURNING id`,
+          [bookingId, world.users.employee.id, key],
+        );
+        ids.push(res.rows[0]!.id);
+      }
+      return ids;
+    });
+
+    await dispatchNotifications('test-worker');
+    const rows = await withServiceTx(async (sql) =>
+      (await sql.query<{ id: string; last_error: string | null }>(
+        'SELECT id, last_error FROM notification_jobs WHERE id = ANY($1)', [[staleJob, freshJob]],
+      )).rows,
+    );
+    expect(rows.find((r) => r.id === staleJob)?.last_error).toContain('เลยเวลาประชุม');
+    // นัดที่เพิ่งเริ่ม: ไม่ถูกข้ามเพราะเวลา (ถูกข้ามเพราะบัญชีทดสอบยังไม่ได้เชื่อม LINE ซึ่งเป็นเหตุผลอื่น)
+    expect(rows.find((r) => r.id === freshJob)?.last_error ?? '').not.toContain('เลยเวลาประชุม');
+  });
+
   it('งานที่ล้มเหลวถูกตั้งเวลาลองใหม่แบบ backoff และตกเป็น dead letter เมื่อครบจำนวนครั้ง', async () => {
     const jobId = await withServiceTx(async (sql) => {
       const res = await sql.query<{ id: string }>(

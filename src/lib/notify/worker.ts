@@ -14,6 +14,13 @@ import type { IcsEvent } from './ics';
  */
 
 const CLAIM_BATCH = 25;
+/**
+ * การเตือนก่อนประชุมที่เลยเวลาเริ่มประชุมไปเกินนี้แล้ว ไม่ส่ง (ข้ามไปเลย)
+ * ตัวส่งถูกปลุกทุก 15 นาทีเฉพาะ 07:00–21:00 (ลดจาก 5 นาทีตลอดวัน เพื่อให้ฐานข้อมูล Neon ได้หลับ
+ * — ผู้ใช้ยอม 21 ต.ค. 2569) การเตือนที่ถึงเวลาช่วงกลางคืนจึงค้างถึงเช้า ถ้าส่งตอนนั้นจะเป็นการเตือน
+ * ประชุมที่จบไปแล้ว 20 นาทีครอบคลุมช่วงห่าง 15 นาทีของตัวส่ง ("ตอนเริ่มประชุม" ยังส่งได้แม้ช้า)
+ */
+const STALE_REMINDER_MINUTES = 20;
 const STUCK_MINUTES = 10;
 
 type JobRow = {
@@ -77,6 +84,13 @@ async function resolveRecipient(
   sql: Sql,
   job: JobRow,
 ): Promise<{ address: string | null; skipReason: string | null; icsEvent: IcsEvent | null }> {
+  if (job.event_type === 'booking.reminder' && job.booking_id) {
+    const booking = await sql.query<{ starts_at: Date }>('SELECT starts_at FROM bookings WHERE id = $1', [job.booking_id]);
+    const startsAt = booking.rows[0]?.starts_at;
+    if (startsAt && Date.now() > startsAt.getTime() + STALE_REMINDER_MINUTES * 60_000) {
+      return { address: null, skipReason: 'เลยเวลาประชุมไปแล้ว ไม่ส่งการเตือนย้อนหลัง', icsEvent: null };
+    }
+  }
   let address = job.recipient_address;
 
   if (job.channel === 'email') {
